@@ -1,0 +1,30 @@
+[project]
+name = "fastapi-minimal-template"
+version = "0.1.0"
+description = "FastAPI minimal template with DI, Redis, Peewee ORM, and Kafka"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.104.1",
+    "uvicorn[standard]>=0.24.0",
+    "python-dotenv>=1.0.0",
+    "pydantic>=2.4.2",
+    "pydantic-settings>=2.0.3",
+    "peewee>=3.17.0",
+    "redis>=5.0.0",
+    "confluent-kafka>=2.3.0",
+    "python-multipart>=0.0.6",
+    "uuid6>=1.0.3",
+    "grpcio>=1.60.0",
+    "grpcio-tools>=1.60.0",
+    "psycopg2-binary>=2.9.11",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.3",
+    "pytest-asyncio>=0.21.1",
+    "black>=23.11.0",
+    "flake8>=6.1.0",
+    "mypy>=1.7.0",
+]
