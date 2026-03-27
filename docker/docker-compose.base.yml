@@ -1,16 +1,17 @@
-
+name: dherta-compose-dev
 services:
   postgres:
-    image: postgres:17-alpine
+    image: ankane/pgvector:latest
     container_name: postgres
     environment:
-      POSTGRES_DB: fastapi_minimal_template
+      POSTGRES_DB: dherta1
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
-      - postgres_template_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_dherta_data:/var/lib/postgresql/data
     networks:
       - app-network
 
@@ -20,7 +21,7 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis_template_data:/data
+      - redis_dherta_data:/data
     networks:
       - app-network
     healthcheck:
@@ -29,36 +30,6 @@ services:
       timeout: 5s
       retries: 5
 
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.5.0
-    container_name: zookeeper
-    ports:
-      - "2181:2181"
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    volumes:
-      - zookeeper_template_data:/var/lib/zookeeper/data
-    networks:
-      - app-network
-
-  kafka:
-    image: confluentinc/cp-kafka:7.5.0
-    container_name: kafka
-    depends_on:
-      - zookeeper
-    ports:
-      - "9092:9092"
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    volumes:
-      - kafka_template_data:/var/lib/kafka/data
-    networks:
-      - app-network
   minio:
     image: minio/minio:latest
     container_name: minio
@@ -71,7 +42,7 @@ services:
       MINIO_CONSOLE_ADDRESS: ":9001"
     command: server /data
     volumes:
-      - minio_template_data:/data
+      - minio_dherta_data:/data
     networks:
       - app-network
     healthcheck:
@@ -79,13 +50,11 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
-  
+
 volumes:
-  postgres_template_data:
-  redis_template_data:
-  zookeeper_template_data:
-  kafka_template_data:
-  minio_template_data:
+  postgres_dherta_data:
+  redis_dherta_data:
+  minio_dherta_data:
 
 networks:
   app-network:

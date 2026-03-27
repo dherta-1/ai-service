@@ -18,6 +18,11 @@ dependencies = [
     "grpcio>=1.60.0",
     "grpcio-tools>=1.60.0",
     "psycopg2-binary>=2.9.11",
+    "google-genai>=1.68.0",
+    "ollama>=0.6.1",
+    "pillow>=12.1.1",
+    "pymupdf>=1.27.2.2",
+    "boto3>=1.42.77",
 ]
 
 [project.optional-dependencies]

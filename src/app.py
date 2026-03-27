@@ -7,15 +7,18 @@ from src.lib.db.peewee import get_database
 from src.lib.db.migration_manager import get_migration_manager
 from src.lib.db.seed_manager import get_seed_manager
 from src.lib.cachedb.redis import get_cache_client
+from src.lib.s3_client import get_s3_client
+from src.llm.registry import get_llm_registry, register_llm_registry
+from src.llm.base import LLMConfig
 from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.system_route import router as system_router
+from src.routes.ai_route import router as ai_router
 from src.entities.project_metadata import ProjectMetadata
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
-from src.handlers.event_dispatcher import initialize_event_handlers
 from src.repos.project_metadata_repo import ProjectMetadataRepo
 from src.services.project_metadata_service import ProjectMetadataService
-from src.lib.event_bus.kafka.producer import KafkaProducerImpl
+from src.services.document_processing_service import DocumentProcessingService
 import logging
 
 logging.basicConfig(
@@ -34,6 +37,46 @@ def setup_di_container() -> None:
     container.register_singleton("settings", settings)
     container.register_singleton("database", get_database())
     container.register_singleton("cache", get_cache_client())
+    s3_client = get_s3_client(settings)
+    container.register_singleton("s3_client", s3_client)
+
+    # ensure S3 bucket if configured
+    s3_bucket = settings.aws_s3_bucket if hasattr(settings, "aws_s3_bucket") else None
+    if s3_bucket:
+        try:
+            s3_client.ensure_bucket(s3_bucket, region_name=settings.aws_region)
+        except Exception as e:
+            logger.warning("Unable to ensure S3 bucket '%s' exists: %s", s3_bucket, e)
+
+    # Register llm registry in DI and default llm client (if configured)
+    llm_registry = register_llm_registry(container)
+
+    llm_conf = LLMConfig(
+        provider=settings.llm_provider,
+        api_key=settings.llm_api_key,
+        model=settings.llm_model,
+        host=settings.llm_host,
+        use_vertex_ai=settings.llm_use_vertex_ai,
+        vertex_project=settings.llm_vertex_project,
+        vertex_location=settings.llm_vertex_location,
+    )
+
+    try:
+        llm_client = llm_registry.create_client(llm_conf, client_id="default_llm")
+        container.register_singleton("llm_client", llm_client)
+    except Exception as e:
+        logger.warning("Could not create LLm client at startup: %s", e)
+
+    # Register document processing service with DI dependencies
+    container.register_type(
+        DocumentProcessingService,
+        lambda: DocumentProcessingService(
+            llm_client=container.get("llm_client"),
+            s3_client=container.get("s3_client"),
+            s3_bucket=s3_bucket,
+        ),
+        singleton=False,
+    )
 
     # Register repositories
     container.register_type(
@@ -45,13 +88,6 @@ def setup_di_container() -> None:
         ProjectMetadataService,
         lambda: ProjectMetadataService(repo=container.resolve(ProjectMetadataRepo)),
         singleton=False,
-    )
-
-    # Register a shared Kafka producer (default topic: project-events)
-    container.register_type(
-        KafkaProducerImpl,
-        lambda: KafkaProducerImpl(topic="project-events"),
-        singleton=True,
     )
 
     logger.info("DI container initialized")
@@ -118,9 +154,6 @@ async def lifespan(app: FastAPI):
     settings = get_settings()
     setup_seeds(run_seeds=getattr(settings, "run_seeds", False))
 
-    # Initialize event handlers
-    initialize_event_handlers()
-
     # Start gRPC server
     grpc_manager = get_grpc_server_manager()
     grpc_manager.start()
@@ -158,6 +191,7 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(system_router, prefix="/system", tags=["system"])
+    app.include_router(ai_router, prefix="/ai", tags=["ai"])
 
     @app.get("/")
     async def root():

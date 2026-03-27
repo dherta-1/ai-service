@@ -1,6 +1,7 @@
 from pydantic_settings import BaseSettings
 from pydantic import Field
 from functools import lru_cache
+from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -24,6 +25,25 @@ class Settings(BaseSettings):
     redis_url: str = Field(default="redis://localhost:6379/0", env="REDIS_URL")
     redis_ttl: int = Field(default=3600, env="REDIS_TTL")
 
+    # AWS S3
+    aws_access_key_id: Optional[str] = Field(default=None, env="AWS_ACCESS_KEY_ID")
+    aws_secret_access_key: Optional[str] = Field(
+        default=None, env="AWS_SECRET_ACCESS_KEY"
+    )
+    aws_session_token: Optional[str] = Field(default=None, env="AWS_SESSION_TOKEN")
+    aws_region: Optional[str] = Field(default=None, env="AWS_REGION")
+    aws_s3_endpoint_url: Optional[str] = Field(default=None, env="AWS_S3_ENDPOINT_URL")
+    aws_s3_bucket: Optional[str] = Field(default=None, env="AWS_S3_BUCKET")
+
+    # LLM
+    llm_provider: str = Field(default="gemini", env="LLM_PROVIDER")
+    llm_model: str = Field(default="gemini-2.5-flash", env="LLM_MODEL")
+    llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
+    llm_host: Optional[str] = Field(default=None, env="LLM_HOST")
+    llm_use_vertex_ai: bool = Field(default=False, env="LLM_USE_VERTEX_AI")
+    llm_vertex_project: Optional[str] = Field(default=None, env="LLM_VERTEX_PROJECT")
+    llm_vertex_location: Optional[str] = Field(default=None, env="LLM_VERTEX_LOCATION")
+
     # Event Bus (Kafka)
     kafka_bootstrap_servers: str = Field(
         default="localhost:9092", env="KAFKA_BOOTSTRAP_SERVERS"
@@ -33,6 +53,17 @@ class Settings(BaseSettings):
     )
     kafka_consumer_auto_offset_reset: str = Field(
         default="earliest", env="KAFKA_CONSUMER_AUTO_OFFSET_RESET"
+    )
+
+    cors_origins: str = Field(
+        default="http://localhost:3000,http://localhost:5173", env="CORS_ORIGINS"
+    )
+    cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
+    cors_allow_methods: str = Field(
+        default="GET,POST,PUT,DELETE,OPTIONS", env="CORS_ALLOW_METHODS"
+    )
+    cors_allow_headers: str = Field(
+        default="Authorization,Content-Type,Accept", env="CORS_ALLOW_HEADERS"
     )
 
     class Config:
