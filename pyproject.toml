@@ -23,6 +23,8 @@ dependencies = [
     "pillow>=12.1.1",
     "pymupdf>=1.27.2.2",
     "boto3>=1.42.77",
+    "paddleocr[all]>=3.2.0",
+    "ultralytics>=8.3.0",
 ]
 
 [project.optional-dependencies]
@@ -33,3 +35,28 @@ dev = [
     "flake8>=6.1.0",
     "mypy>=1.7.0",
 ]
+
+gpu = [
+    "torch>=2.5.0",
+    "torchvision>=0.20.0",
+    "torchaudio>=2.5.0",
+    "paddlepaddle-gpu>=3.2.0",
+]
+
+cpu = ["paddlepaddle>=3.2.0"]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true
+
+[[tool.uv.index]]
+name = "paddle-cu126"
+url = "https://www.paddlepaddle.org.cn/packages/stable/cu126/"
+explicit = true
+
+[tool.uv.sources]
+torch = [{ index = "pytorch-cu126" }]
+torchvision = [{ index = "pytorch-cu126" }]
+torchaudio = [{ index = "pytorch-cu126" }]
+paddlepaddle-gpu = [{ index = "paddle-cu126" }]

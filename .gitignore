@@ -10,3 +10,6 @@ wheels/
 .venv
 .env
 *tar.gz
+output
+huggingface
+*.pt
