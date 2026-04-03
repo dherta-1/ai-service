@@ -9,7 +9,6 @@ from src.container import get_di_container
 from src.services.document_processing_service import DocumentProcessingService
 from src.shared.response.response_models import create_response
 
-
 router = APIRouter()
 
 

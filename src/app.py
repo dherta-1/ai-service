@@ -10,6 +10,8 @@ from src.lib.cachedb.redis import get_cache_client
 from src.lib.s3_client import get_s3_client
 from src.llm.registry import get_llm_registry, register_llm_registry
 from src.llm.base import LLMConfig
+from src.ocr.registry import register_ocr_registry
+from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.system_route import router as system_router
 from src.routes.ai_route import router as ai_router
@@ -67,11 +69,25 @@ def setup_di_container() -> None:
     except Exception as e:
         logger.warning("Could not create LLm client at startup: %s", e)
 
+    # Register OCR registry in DI and default OCR client (if configured)
+    ocr_registry = register_ocr_registry(container)
+    ocr_conf = OCRConfig(
+        provider=settings.ocr_provider,
+        lang=settings.ocr_lang,
+        use_gpu=settings.ocr_use_gpu,
+    )
+
+    try:
+        ocr_client = ocr_registry.create_client(ocr_conf, client_id="default_ocr")
+        container.register_singleton("ocr_client", ocr_client)
+    except Exception as e:
+        logger.warning("Could not create OCR client at startup: %s", e)
+
     # Register document processing service with DI dependencies
     container.register_type(
         DocumentProcessingService,
         lambda: DocumentProcessingService(
-            llm_client=container.get("llm_client"),
+            ocr_client=container.get("ocr_client"),
             s3_client=container.get("s3_client"),
             s3_bucket=s3_bucket,
         ),

@@ -5,7 +5,6 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
-
 from paddleocr import PPStructureV3
 
 
@@ -88,6 +87,7 @@ def main() -> int:
         res.print()
         res.save_to_json(str(output_dir))
         res.save_to_img(str(output_dir))
+        res.save_to_markdown(str(output_dir))
 
     # Also save structured output as JSON
     structured_output = {

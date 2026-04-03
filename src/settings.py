@@ -44,6 +44,11 @@ class Settings(BaseSettings):
     llm_vertex_project: Optional[str] = Field(default=None, env="LLM_VERTEX_PROJECT")
     llm_vertex_location: Optional[str] = Field(default=None, env="LLM_VERTEX_LOCATION")
 
+    # OCR
+    ocr_provider: str = Field(default="ppstructure", env="OCR_PROVIDER")
+    ocr_lang: str = Field(default="en", env="OCR_LANG")
+    ocr_use_gpu: bool = Field(default=False, env="OCR_USE_GPU")
+
     # Event Bus (Kafka)
     kafka_bootstrap_servers: str = Field(
         default="localhost:9092", env="KAFKA_BOOTSTRAP_SERVERS"

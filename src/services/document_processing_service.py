@@ -13,8 +13,7 @@ from typing import Any, Optional
 import fitz
 from PIL import Image
 
-from src.shared.utils.json_normalize import extract_json_object, normalize_exam_payload
-from src.prompts.document_extraction import document_extraction_prompt
+from src.ocr.dtos import OCRImageRequest
 
 logger = logging.getLogger(__name__)
 
@@ -22,14 +21,12 @@ logger = logging.getLogger(__name__)
 class DocumentProcessingService:
     """Process uploaded documents into structured exam JSON."""
 
-    def __init__(self, llm_client, s3_client, s3_bucket: Optional[str] = None):
-        self.llm_client = llm_client
+    def __init__(self, ocr_client, s3_client, s3_bucket: Optional[str] = None):
+        self.ocr_client = ocr_client
         self.s3_client = s3_client
         self.s3_bucket = s3_bucket
         self.output_dir = Path("output")
         self.output_dir.mkdir(parents=True, exist_ok=True)
-
-        self.extraction_prompt = document_extraction_prompt
 
     async def process_document(
         self,
@@ -38,7 +35,7 @@ class DocumentProcessingService:
         s3_bucket: Optional[str] = None,
         s3_prefix: str = "document-extraction",
     ) -> dict[str, Any]:
-        """Main flow: open file, render pages, call LLM concurrently, merge JSON, crop figures."""
+        """Main flow: open file, render pages, run OCR, and crop image blocks."""
         file_id = str(uuid.uuid4())
         file_path = Path(local_file_path)
 
@@ -55,51 +52,49 @@ class DocumentProcessingService:
         crops: list[dict[str, Any]] = []
 
         try:
-            # Render all pages and extract LLM data concurrently
-            page_tasks = []
+            # Render all pages to image files for OCR processing.
+            page_image_paths: list[Path] = []
             for page_index in range(doc.page_count):
                 page = doc[page_index]
-                image_path, pil_image = self._render_page_to_image(
-                    file_id, page_index, page
-                )
-                task = self._extract_page_with_llm(image_path, pil_image, page_index)
-                page_tasks.append(task)
-
-            # Run all LLM extractions concurrently
-            llm_results = await asyncio.gather(*page_tasks)
-
-            # Merge results from all pages
-            for page_index, llm_json in enumerate(llm_results):
-                for item in llm_json.get("exam_data", []):
-                    if isinstance(item, dict):
-                        item["page_number"] = page_index + 1
-                        all_exam_data.append(item)
+                image_path = self._render_page_to_image(file_id, page_index, page)
+                page_image_paths.append(image_path)
 
             crop_dir = self.output_dir / file_id / "crops"
             crop_dir.mkdir(parents=True, exist_ok=True)
-            for idx, item in enumerate(all_exam_data):
-                box = item.get("illustration_box")
-                page_number = int(item.get("page_number", 1))
-                if not self._is_valid_box(box):
-                    continue
 
-                crop_path = self._crop_illustration(
-                    doc, page_number - 1, box, crop_dir, idx
-                )
-                if crop_path:
-                    item["illustration_local_path"] = str(crop_path)
-                    crops.append(
-                        {
-                            "question_number": item.get("question_number", ""),
-                            "page_number": page_number,
-                            "path": str(crop_path),
-                        }
+            for page_index, image_path in enumerate(page_image_paths):
+                page_items = await self._extract_page_with_ocr(image_path, page_index)
+                all_exam_data.extend(page_items)
+
+                image_items = [item for item in page_items if item["content_type"] == "image"]
+                for image_idx, item in enumerate(image_items, start=1):
+                    bbox = item.get("bbox")
+                    if not self._is_valid_box(bbox):
+                        continue
+
+                    crop_path = self._crop_image_region(
+                        image_path=image_path,
+                        bbox=bbox,
+                        crop_dir=crop_dir,
+                        page_index=page_index,
+                        item_index=image_idx,
                     )
+                    if not crop_path:
+                        continue
 
-                    if s3_bucket:
+                    item["illustration_local_path"] = str(crop_path)
+                    crop_meta = {
+                        "page_number": page_index + 1,
+                        "path": str(crop_path),
+                    }
+
+                    if bucket:
                         key = f"{s3_prefix}/{file_id}/crops/{crop_path.name}"
-                        self.s3_client.upload_file(str(crop_path), s3_bucket, key)
+                        self.s3_client.upload_file(str(crop_path), bucket, key)
                         item["illustration_s3_key"] = key
+                        crop_meta["s3_key"] = key
+
+                    crops.append(crop_meta)
 
             return {
                 "file_id": file_id,
@@ -110,9 +105,7 @@ class DocumentProcessingService:
         finally:
             doc.close()
 
-    def _render_page_to_image(
-        self, file_id: str, page_index: int, page: fitz.Page
-    ) -> tuple[Path, Image.Image]:
+    def _render_page_to_image(self, file_id: str, page_index: int, page: fitz.Page) -> Path:
         """Render a PDF page to PIL image and save locally."""
         # Use 2x scaling for better OCR quality
         matrix = fitz.Matrix(2.0, 2.0)
@@ -123,62 +116,69 @@ class DocumentProcessingService:
         image_dir.mkdir(parents=True, exist_ok=True)
         image_path = image_dir / f"page_{page_index + 1}.png"
         pil_image.save(image_path, format="PNG")
-        return image_path, pil_image
+        return image_path
 
-    async def _extract_page_with_llm(
-        self, image_path: Path, pil_image: Image.Image, page_index: int
-    ) -> dict[str, Any]:
-        """Call LLM using page image and normalize JSON payload (async)."""
-        _ = pil_image  # image object is created and available for providers that can use direct image inputs
+    async def _extract_page_with_ocr(
+        self, image_path: Path, page_index: int
+    ) -> list[dict[str, Any]]:
+        """Extract OCR blocks from a rendered page image."""
+        request = OCRImageRequest(image_path=image_path)
+        ocr_result = await asyncio.to_thread(self.ocr_client.extract, request)
 
-        raw = self.llm_client.generate_file(
-            file_path=str(image_path),
-            prompt=self.extraction_prompt,
+        page_items: list[dict[str, Any]] = []
+        for page in ocr_result.pages:
+            for item in page.items:
+                page_items.append(
+                    {
+                        "page_number": page_index + 1,
+                        "bbox": {
+                            "x1": item.bbox.x1,
+                            "y1": item.bbox.y1,
+                            "x2": item.bbox.x2,
+                            "y2": item.bbox.y2,
+                        },
+                        "content": item.content,
+                        "content_type": item.content_type,
+                        "accuracy": float(item.accuracy),
+                    }
+                )
+
+        logger.info(
+            "OCR extracted %s blocks for page %s",
+            len(page_items),
+            page_index + 1,
         )
+        return page_items
 
-        logger.debug(f"LLM raw response for page {page_index + 1}: {raw[:500]}")
-
-        parsed = extract_json_object(raw)
-        return normalize_exam_payload(parsed)
-
-    def _crop_illustration(
+    def _crop_image_region(
         self,
-        doc: fitz.Document,
-        page_index: int,
-        box: dict[str, Any],
+        image_path: Path,
+        bbox: dict[str, Any],
         crop_dir: Path,
+        page_index: int,
         item_index: int,
     ) -> Optional[Path]:
-        """Crop illustration based on 0-1000 normalized box and save file."""
-        page = doc[page_index]
-        page_rect = page.rect
-
-        x1 = self._clamp_0_1000(box.get("x1"))
-        y1 = self._clamp_0_1000(box.get("y1"))
-        x2 = self._clamp_0_1000(box.get("x2"))
-        y2 = self._clamp_0_1000(box.get("y2"))
+        """Crop image region from page image using pixel-space bbox."""
+        x1 = max(0, int(float(bbox.get("x1", 0))))
+        y1 = max(0, int(float(bbox.get("y1", 0))))
+        x2 = max(0, int(float(bbox.get("x2", 0))))
+        y2 = max(0, int(float(bbox.get("y2", 0))))
         if x2 <= x1 or y2 <= y1:
             return None
 
-        rect = fitz.Rect(
-            page_rect.x0 + (x1 / 1000.0) * page_rect.width,
-            page_rect.y0 + (y1 / 1000.0) * page_rect.height,
-            page_rect.x0 + (x2 / 1000.0) * page_rect.width,
-            page_rect.y0 + (y2 / 1000.0) * page_rect.height,
-        )
+        with Image.open(image_path) as page_image:
+            width, height = page_image.size
+            x1 = min(x1, width)
+            y1 = min(y1, height)
+            x2 = min(x2, width)
+            y2 = min(y2, height)
+            if x2 <= x1 or y2 <= y1:
+                return None
 
-        pix = page.get_pixmap(matrix=fitz.Matrix(2.0, 2.0), clip=rect, alpha=False)
-        crop_path = crop_dir / f"crop_p{page_index + 1}_{item_index + 1}.png"
-        pix.save(str(crop_path))
-        return crop_path
-
-    @staticmethod
-    def _clamp_0_1000(value: Any) -> int:
-        try:
-            num = int(float(value))
-        except (TypeError, ValueError):
-            num = 0
-        return max(0, min(1000, num))
+            crop = page_image.crop((x1, y1, x2, y2))
+            crop_path = crop_dir / f"crop_p{page_index + 1}_{item_index}.png"
+            crop.save(crop_path, format="PNG")
+            return crop_path
 
     @staticmethod
     def _is_valid_box(box: Any) -> bool:
