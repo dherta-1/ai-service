@@ -62,11 +62,15 @@ class DocumentProcessingService:
             crop_dir = self.output_dir / file_id / "crops"
             crop_dir.mkdir(parents=True, exist_ok=True)
 
+            pages_markdown: list[dict[str, Any]] = []
+
             for page_index, image_path in enumerate(page_image_paths):
                 page_items = await self._extract_page_with_ocr(image_path, page_index)
                 all_exam_data.extend(page_items)
 
-                image_items = [item for item in page_items if item["content_type"] == "image"]
+                image_items = [
+                    item for item in page_items if item["content_type"] == "image"
+                ]
                 for image_idx, item in enumerate(image_items, start=1):
                     bbox = item.get("bbox")
                     if not self._is_valid_box(bbox):
@@ -94,18 +98,36 @@ class DocumentProcessingService:
                         item["illustration_s3_key"] = key
                         crop_meta["s3_key"] = key
 
+                        # Generate presigned URL for the image
+                        presigned_url = self._generate_presigned_url(bucket, key)
+                        if presigned_url:
+                            item["illustration_presigned_url"] = presigned_url
+                            crop_meta["presigned_url"] = presigned_url
+
                     crops.append(crop_meta)
+
+                # Generate markdown content for this page
+                markdown_content = self._generate_page_markdown(page_items)
+                pages_markdown.append(
+                    {
+                        "page_number": page_index + 1,
+                        "markdown_content": markdown_content,
+                    }
+                )
 
             return {
                 "file_id": file_id,
                 "filename": original_filename,
                 "exam_data": all_exam_data,
                 "crops": crops,
+                "pages": pages_markdown,
             }
         finally:
             doc.close()
 
-    def _render_page_to_image(self, file_id: str, page_index: int, page: fitz.Page) -> Path:
+    def _render_page_to_image(
+        self, file_id: str, page_index: int, page: fitz.Page
+    ) -> Path:
         """Render a PDF page to PIL image and save locally."""
         # Use 2x scaling for better OCR quality
         matrix = fitz.Matrix(2.0, 2.0)
@@ -186,3 +208,54 @@ class DocumentProcessingService:
             return False
         required = ("x1", "y1", "x2", "y2")
         return all(k in box and box[k] is not None for k in required)
+
+    def _generate_presigned_url(
+        self, bucket: str, key: str, expiration: int = 3600
+    ) -> str | None:
+        """Generate a presigned URL for S3 object access."""
+        try:
+            presigned_url = self.s3_client.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket, "Key": key},
+                ExpiresIn=expiration,
+            )
+            return presigned_url
+        except Exception as e:
+            logger.warning(f"Failed to generate presigned URL for {key}: {e}")
+            return None
+
+    @staticmethod
+    def _generate_page_markdown(items: list[dict[str, Any]]) -> str:
+        """Generate markdown content from extracted page items in order."""
+        if not items:
+            return ""
+
+        markdown_parts: list[str] = []
+
+        for item in items:
+            content = item.get("content", "").strip()
+            if not content:
+                continue
+
+            content_type = item.get("content_type", "text").lower()
+
+            if content_type == "text" or content_type == "formula":
+                markdown_parts.append(content)
+
+            elif content_type in {"image", "figure", "table", "chart", "graphic"}:
+                # Reference image with HTML img element using presigned URL if available
+                path = (
+                    item.get("illustration_presigned_url")
+                    or item.get("illustration_s3_key")
+                    or item.get("illustration_local_path")
+                )
+                if path:
+                    markdown_parts.append(
+                        f'<img src="{path}" alt="{content_type.capitalize()}" />'
+                    )
+                else:
+                    markdown_parts.append(f"[{content_type.capitalize()}]")
+            elif content_type == "seal":
+                continue
+
+        return "\n".join(markdown_parts).strip()

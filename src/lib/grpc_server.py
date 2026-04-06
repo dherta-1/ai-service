@@ -3,10 +3,7 @@ import logging
 from concurrent import futures
 from threading import Thread
 from src.settings import get_settings
-from src.grpc.project_metadata_servicer import ProjectMetadataGrpcServicer
-from src.grpc_generated.project_metadata_pb2_grpc import (
-    add_ProjectMetadataServiceServicer_to_server,
-)
+
 
 logger = logging.getLogger(__name__)
 
@@ -34,8 +31,8 @@ class GRPCServerManager:
             )
 
             # Add servicers using generated handler registration
-            servicer = ProjectMetadataGrpcServicer()
-            add_ProjectMetadataServiceServicer_to_server(servicer, self.server)
+            # servicer = ProjectMetadataGrpcServicer()
+            # add_ProjectMetadataServiceServicer_to_server(servicer, self.server)
 
             # Bind to address
             grpc_host = f"{settings.host}:{settings.grpc_port}"

@@ -67,6 +67,25 @@ class S3Client:
     def get_client(self):
         return self.client
 
+    def generate_presigned_url(
+        self,
+        client_method: str,
+        Params: Dict[str, Any],
+        ExpiresIn: int = 3600,
+    ) -> str:
+        """Generate a presigned URL for S3 object access."""
+        try:
+            url = self.client.generate_presigned_url(
+                client_method,
+                Params=Params,
+                ExpiresIn=ExpiresIn,
+            )
+            logger.info("Generated presigned URL for %s", Params.get("Key", "unknown"))
+            return url
+        except (BotoCoreError, ClientError) as e:
+            logger.error("Failed to generate presigned URL: %s", e)
+            raise
+
     def ensure_bucket(self, bucket: str, region_name: Optional[str] = None) -> None:
         """Ensure S3 bucket exists; create if missing."""
         try:

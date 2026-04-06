@@ -101,17 +101,17 @@ def get_event_dispatcher() -> EventDispatcher:
 
 def initialize_event_handlers() -> None:
     """Initialize all event handlers"""
-    from src.handlers.project_events import (
-        ProjectCreatedEventHandler,
-        ProjectUpdatedEventHandler,
-        ProjectDeletedEventHandler,
-    )
+    # from src.handlers.project_events import (
+    #     ProjectCreatedEventHandler,
+    #     ProjectUpdatedEventHandler,
+    #     ProjectDeletedEventHandler,
+    # )
 
     dispatcher = get_event_dispatcher()
 
     # Register project event handlers
-    dispatcher.register_handler(ProjectCreatedEventHandler())
-    dispatcher.register_handler(ProjectUpdatedEventHandler())
-    dispatcher.register_handler(ProjectDeletedEventHandler())
+    # dispatcher.register_handler(ProjectCreatedEventHandler())
+    # dispatcher.register_handler(ProjectUpdatedEventHandler())
+    # dispatcher.register_handler(ProjectDeletedEventHandler())
 
     logger.info(f"Event handlers initialized - Topics: {dispatcher.get_topics()}")

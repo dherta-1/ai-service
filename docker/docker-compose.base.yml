@@ -2,9 +2,9 @@ name: dherta-compose-dev
 services:
   postgres:
     image: ankane/pgvector:latest
-    container_name: postgres
+    container_name: dherta-postgres
     environment:
-      POSTGRES_DB: dherta1
+      POSTGRES_DB: dherta
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
@@ -17,7 +17,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis
+    container_name: dherta-redis
     ports:
       - "6379:6379"
     volumes:
@@ -32,7 +32,7 @@ services:
 
   minio:
     image: minio/minio:latest
-    container_name: minio
+    container_name: dherta-minio
     ports:
       - "9000:9000"
       - "9001:9001"

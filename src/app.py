@@ -13,13 +13,10 @@ from src.llm.base import LLMConfig
 from src.ocr.registry import register_ocr_registry
 from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
-from src.routes.system_route import router as system_router
 from src.routes.ai_route import router as ai_router
-from src.entities.project_metadata import ProjectMetadata
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
 from src.repos.project_metadata_repo import ProjectMetadataRepo
-from src.services.project_metadata_service import ProjectMetadataService
 from src.services.document_processing_service import DocumentProcessingService
 import logging
 
@@ -94,17 +91,7 @@ def setup_di_container() -> None:
         singleton=False,
     )
 
-    # Register repositories
-    container.register_type(
-        ProjectMetadataRepo, lambda: ProjectMetadataRepo(), singleton=False
-    )
-
     # Register services with their dependencies
-    container.register_type(
-        ProjectMetadataService,
-        lambda: ProjectMetadataService(repo=container.resolve(ProjectMetadataRepo)),
-        singleton=False,
-    )
 
     logger.info("DI container initialized")
 
@@ -117,7 +104,7 @@ def bind_models_to_database() -> None:
 
         # List of all models to bind
         models = [
-            ProjectMetadata,
+            # Add your Peewee models here, e.g.: Document, Page, etc.
         ]
 
         # Bind each model to the database
@@ -206,7 +193,6 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
-    app.include_router(system_router, prefix="/system", tags=["system"])
     app.include_router(ai_router, prefix="/ai", tags=["ai"])
 
     @app.get("/")
