@@ -16,9 +16,13 @@ from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.ai_route import router as ai_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
-from src.repos.project_metadata_repo import ProjectMetadataRepo
 from src.services.document_processing_service import DocumentProcessingService
 import logging
+from src.entities.document import Document
+from src.entities.file_metadata import FileMetadata
+from src.entities.page import Page
+from src.entities.question import Question
+from src.entities.task import Task
 
 logging.basicConfig(
     level=logging.INFO,
@@ -65,6 +69,7 @@ def setup_di_container() -> None:
         container.register_singleton("llm_client", llm_client)
     except Exception as e:
         logger.warning("Could not create LLm client at startup: %s", e)
+        container.register_singleton("llm_client", None)
 
     # Register OCR registry in DI and default OCR client (if configured)
     ocr_registry = register_ocr_registry(container)
@@ -86,6 +91,7 @@ def setup_di_container() -> None:
         lambda: DocumentProcessingService(
             ocr_client=container.get("ocr_client"),
             s3_client=container.get("s3_client"),
+            llm_client=container.get("llm_client"),
             s3_bucket=s3_bucket,
         ),
         singleton=False,
@@ -103,9 +109,7 @@ def bind_models_to_database() -> None:
         db_instance = db_manager.get_db()
 
         # List of all models to bind
-        models = [
-            # Add your Peewee models here, e.g.: Document, Page, etc.
-        ]
+        models = [Document, FileMetadata, Page, Question, Task]
 
         # Bind each model to the database
         for model in models:

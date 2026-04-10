@@ -1,10 +1,11 @@
 from src.shared.base.base_entity import BaseEntity
+from src.entities.page import Page
 from peewee import CharField, ForeignKeyField, TextField
 
 
 class Question(BaseEntity):
 
-    page = ForeignKeyField("Page", backref="questions")
+    page = ForeignKeyField(Page, backref="questions")
     question_text = TextField()  # Store the question markdown text
     question_type = CharField(
         max_length=50

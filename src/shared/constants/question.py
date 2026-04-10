@@ -6,3 +6,16 @@ class QuestionType(str, Enum):
     TRUE_FALSE = "true_false"
     SHORT_ANSWER = "short_answer"
     ESSAY = "essay"
+
+
+class DifficultyLevel(str, Enum):
+    EASY = "easy"
+    MEDIUM = "medium"
+    HARD = "hard"
+
+
+class Subject(str, Enum):
+    MATH = "math"
+    SCIENCE = "science"
+    HISTORY = "history"
+    LITERATURE = "literature"
