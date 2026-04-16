@@ -40,6 +40,7 @@ class GenerationConfig:
     max_tokens: Optional[int] = None
     top_p: float = 0.9
     top_k: Optional[int] = None
+    response_mime_type: Optional[str] = None  # e.g., 'text/plain', 'application/json'
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary, excluding None values"""

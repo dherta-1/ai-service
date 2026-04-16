@@ -37,6 +37,22 @@ class ContentValidationPipeline(
         if not isinstance(image_path, Path) or not image_path.exists():
             raise FileNotFoundError(f"Image path not found: {image_path}")
 
+    def postprocess(self, result: ContentValidationOutput) -> ContentValidationOutput:
+        """Validate output structure before returning."""
+        if not isinstance(result, dict):
+            logger.error(
+                f"ContentValidationPipeline postprocess: Invalid result type {type(result)}"
+            )
+            return {"page_number": 0, "content": ""}
+
+        if "page_number" not in result or "content" not in result:
+            logger.error(
+                f"ContentValidationPipeline postprocess: Missing required keys. Got: {list(result.keys())}"
+            )
+            return {"page_number": result.get("page_number", 0), "content": ""}
+
+        return result
+
     async def process(self, payload: ContentValidationInput) -> ContentValidationOutput:
         page_number = payload["page_number"]
         markdown_content = (payload.get("markdown_content") or "").strip()
@@ -55,7 +71,7 @@ class ContentValidationPipeline(
                 self.llm_client.generate_file,
                 str(image_path),
                 prompt,
-                GenerationConfig(temperature=0.1),
+                GenerationConfig(temperature=0.1, response_mime_type="text/plain"),
             )
             normalized_content = self._extract_markdown(raw_response)
             if not normalized_content:

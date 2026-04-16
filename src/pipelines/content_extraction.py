@@ -41,6 +41,22 @@ class ContentExtractionPipeline(
         if not isinstance(image_path, Path) or not image_path.exists():
             raise FileNotFoundError(f"Image path not found: {image_path}")
 
+    def postprocess(self, result: ContentExtractionOutput) -> ContentExtractionOutput:
+        """Validate output structure before returning."""
+        if not isinstance(result, dict):
+            logger.error(
+                f"ContentExtractionPipeline postprocess: Invalid result type {type(result)}"
+            )
+            return {"page_number": 0, "markdown_content": ""}
+
+        if "page_number" not in result or "markdown_content" not in result:
+            logger.error(
+                f"ContentExtractionPipeline postprocess: Missing required keys. Got: {list(result.keys())}"
+            )
+            return {"page_number": result.get("page_number", 0), "markdown_content": ""}
+
+        return result
+
     async def process(self, payload: ContentExtractionInput) -> ContentExtractionOutput:
         image_path = payload["image_path"]
         page_index = payload["page_index"]

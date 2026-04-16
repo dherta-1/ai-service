@@ -19,7 +19,7 @@ services:
     image: redis:7-alpine
     container_name: dherta-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_dherta_data:/data
     networks:
@@ -34,8 +34,8 @@ services:
     image: minio/minio:latest
     container_name: dherta-minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "9003:9000"
+      - "9004:9001"
     environment:
       MINIO_ROOT_USER: minioadmin
       MINIO_ROOT_PASSWORD: minioadmin

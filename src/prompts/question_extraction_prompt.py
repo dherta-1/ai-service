@@ -8,11 +8,11 @@ Use BOTH inputs as context:
 Your task is to return ONLY valid JSON. The output MUST be valid JSON.
 
 Output format (use this exact structure):
-{"questions": [{"question_text": "...", "question_type": "multiple_choice|true_false|short_answer|essay", "difficulty": "easy|medium|hard|null", "subject": "math|science|history|literature|null", "topic": "...|null", "answers": "...|null", "correct_answer": "...|null", "image_list": [...]}]}
+{{"questions": [{{"question_text": "...", "question_type": "multiple_choice|true_false|short_answer|essay", "difficulty": "easy|medium|hard|null", "subject": "math|science|history|literature|null", "topic": "...|null", "answers": "...|null", "correct_answer": "...|null", "image_list": [...]}}]}}
 
 STRICT RULES:
 1. Return ONLY valid JSON. No markdown, no code fences, no explanations.
-2. If no questions found, return: {"questions": []}
+2. If no questions found, return: {{"questions": []}}
 3. Each question MUST have all 8 fields (question_text, question_type, difficulty, subject, topic, answers, correct_answer, image_list).
 4. question_text: The full question text. If it depends on an image/table/chart, include that context in the text.
 5. question_type: MUST be one of: "multiple_choice", "true_false", "short_answer", "essay"

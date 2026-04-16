@@ -84,40 +84,88 @@ class DocumentProcessingService:
             pages_output: list[dict[str, object]] = []
 
             for page_index, image_path in enumerate(page_image_paths):
-                extracted = await self.extraction_pipeline.run(
-                    {
-                        "image_path": image_path,
-                        "page_index": page_index,
-                        "crop_dir": crop_dir,
-                        "file_id": file_id,
-                        "s3_prefix": s3_prefix,
-                        "bucket": bucket,
-                    }
-                )
+                try:
+                    extracted = await self.extraction_pipeline.run(
+                        {
+                            "image_path": image_path,
+                            "page_index": page_index,
+                            "crop_dir": crop_dir,
+                            "file_id": file_id,
+                            "s3_prefix": s3_prefix,
+                            "bucket": bucket,
+                        }
+                    )
+                    logger.debug(
+                        f"Extraction result for page {page_index}: {extracted}"
+                    )
 
-                validated = await self.validation_pipeline.run(
-                    {
-                        "image_path": image_path,
-                        "page_number": extracted["page_number"],
-                        "markdown_content": extracted["markdown_content"],
-                    }
-                )
+                    # Validate extraction output structure
+                    if not isinstance(extracted, dict):
+                        raise ValueError(
+                            f"Extraction pipeline returned invalid type: {type(extracted).__name__}"
+                        )
+                    if (
+                        "page_number" not in extracted
+                        or "markdown_content" not in extracted
+                    ):
+                        raise KeyError(
+                            f"Extraction pipeline missing required keys. Got: {list(extracted.keys())}"
+                        )
 
-                questions = await self.question_pipeline.run(
-                    {
-                        "image_path": image_path,
-                        "page_number": extracted["page_number"],
-                        "markdown_content": validated["content"],
-                    }
-                )
+                    validated = await self.validation_pipeline.run(
+                        {
+                            "image_path": image_path,
+                            "page_number": extracted["page_number"],
+                            "markdown_content": extracted["markdown_content"],
+                        }
+                    )
+                    logger.debug(
+                        f"Validation result for page {page_index}: {validated}"
+                    )
 
-                pages_output.append(
-                    {
-                        "page_number": validated["page_number"],
-                        "content": validated["content"],
-                        "questions": questions["questions"],
-                    }
-                )
+                    # Validate validation output structure
+                    if not isinstance(validated, dict):
+                        raise ValueError(
+                            f"Validation pipeline returned invalid type: {type(validated).__name__}"
+                        )
+                    if "page_number" not in validated or "content" not in validated:
+                        raise KeyError(
+                            f"Validation pipeline missing required keys. Got: {list(validated.keys())}"
+                        )
+
+                    questions = await self.question_pipeline.run(
+                        {
+                            "page_number": extracted["page_number"],
+                            "markdown_content": validated["content"],
+                        }
+                    )
+                    logger.debug(
+                        f"Question extraction result for page {page_index}: {questions}"
+                    )
+
+                    # Validate question extraction output structure
+                    if not isinstance(questions, dict):
+                        raise ValueError(
+                            f"Question extraction pipeline returned invalid type: {type(questions).__name__}"
+                        )
+                    if "page_number" not in questions or "questions" not in questions:
+                        raise KeyError(
+                            f"Question extraction pipeline missing required keys. Got: {list(questions.keys())}"
+                        )
+
+                    pages_output.append(
+                        {
+                            "page_number": validated["page_number"],
+                            "content": validated["content"],
+                            "questions": questions["questions"],
+                        }
+                    )
+                except Exception as page_error:
+                    logger.error(
+                        f"Failed to process page {page_index}: {page_error}",
+                        exc_info=True,
+                    )
+                    raise
 
             return {
                 "file_id": file_id,

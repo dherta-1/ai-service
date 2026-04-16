@@ -13,3 +13,4 @@ wheels/
 output
 huggingface
 *.pt
+tmp

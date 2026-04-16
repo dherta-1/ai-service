@@ -4,12 +4,14 @@ import asyncio
 import json
 import logging
 import re
+from datetime import datetime
 from pathlib import Path
 from typing import Any, TypedDict
 
 from src.llm.base import GenerationConfig
 from src.shared.base.base_pipeline import BasePipeline
 from src.shared.constants.question import DifficultyLevel, QuestionType, Subject
+from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +28,6 @@ class ExtractedQuestion(TypedDict):
 
 
 class QuestionExtractionInput(TypedDict):
-    image_path: Path
     page_number: int
     markdown_content: str
 
@@ -46,16 +47,40 @@ class QuestionExtractionPipeline(
         self.prompt_template = prompt_template
 
     def validate(self, payload: QuestionExtractionInput) -> None:
-        image_path = payload.get("image_path")
-        if not isinstance(image_path, Path) or not image_path.exists():
-            raise FileNotFoundError(f"Image path not found: {image_path}")
+        """Validate input payload."""
+        if "page_number" not in payload or "markdown_content" not in payload:
+            raise ValueError(
+                "Missing required input fields: page_number, markdown_content"
+            )
+
+    def postprocess(self, result: QuestionExtractionOutput) -> QuestionExtractionOutput:
+        """Validate output structure before returning."""
+        if not isinstance(result, dict):
+            logger.error(
+                f"QuestionExtractionPipeline postprocess: Invalid result type {type(result)}"
+            )
+            return {"page_number": 0, "questions": []}
+
+        if "page_number" not in result or "questions" not in result:
+            logger.error(
+                f"QuestionExtractionPipeline postprocess: Missing required keys. Got: {list(result.keys())}"
+            )
+            return {"page_number": result.get("page_number", 0), "questions": []}
+
+        # Ensure questions is a list
+        if not isinstance(result["questions"], list):
+            logger.error(
+                f"QuestionExtractionPipeline postprocess: 'questions' is not a list, got {type(result['questions'])}"
+            )
+            result["questions"] = []
+
+        return result
 
     async def process(
         self, payload: QuestionExtractionInput
     ) -> QuestionExtractionOutput:
         page_number = payload["page_number"]
         markdown_content = (payload.get("markdown_content") or "").strip()
-        image_path = payload["image_path"]
 
         if not markdown_content:
             return {"page_number": page_number, "questions": []}
@@ -67,10 +92,11 @@ class QuestionExtractionPipeline(
 
         try:
             raw_response = await asyncio.to_thread(
-                self.llm_client.generate_file,
-                str(image_path),
+                self.llm_client.generate,
                 prompt,
-                GenerationConfig(temperature=0.1),
+                GenerationConfig(
+                    temperature=0.1, response_mime_type="application/json"
+                ),
             )
 
             logger.debug(
@@ -78,6 +104,8 @@ class QuestionExtractionPipeline(
             )
 
             parsed = self._extract_json_payload(raw_response)
+            logger.debug(f"Parsed JSON structure keys: {list(parsed.keys())}")
+
             questions_raw = parsed.get("questions", [])
             questions = self._normalize_questions(questions_raw)
 
@@ -87,10 +115,12 @@ class QuestionExtractionPipeline(
                 page_number,
             )
 
-            return {
+            result: QuestionExtractionOutput = {
                 "page_number": page_number,
                 "questions": questions,
             }
+            logger.debug(f"Question extraction result structure: {list(result.keys())}")
+            return result
         except Exception as exc:
             logger.error(
                 "Question extraction failed for page %s: %s",
@@ -107,38 +137,160 @@ class QuestionExtractionPipeline(
             logger.warning("Empty response from LLM")
             return {"questions": []}
 
-        # Prefer fenced JSON if model wraps response.
-        fenced = re.findall(r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE)
-        candidates = fenced + [text]
+        candidates: list[str] = []
 
-        for candidate in candidates:
+        # Strategy 1: Extract fenced JSON blocks
+        fenced_greedy = re.findall(
+            r"```(?:json)?\s*([\s\S]*?)\s*```", text, re.IGNORECASE
+        )
+        if fenced_greedy:
+            candidates.extend(fenced_greedy)
+            logger.debug(f"Found {len(fenced_greedy)} fenced JSON block(s)")
+
+        # Strategy 2: Try the raw text directly
+        candidates.append(text)
+
+        # Try to parse each candidate
+        for idx, candidate in enumerate(candidates):
             candidate = candidate.strip()
             if not candidate:
                 continue
+
+            # Pre-process to fix common LLM JSON errors
+            cleaned = candidate
+
+            # Fix trailing commas before closing brackets/braces
+            cleaned = re.sub(r",(\s*[\]}])", r"\1", cleaned)
+
+            # Fix string "null" to actual null
+            cleaned = re.sub(r':\s*"null"', r": null", cleaned)
+            cleaned = re.sub(r':\s*"null"\s*,', r": null,", cleaned)
+
+            # Try direct parsing first
             try:
-                parsed = json.loads(candidate)
+                parsed = json.loads(cleaned)
                 if isinstance(parsed, dict):
-                    logger.debug("Successfully parsed JSON from LLM response")
+                    logger.debug(f"Successfully parsed JSON from candidate {idx}")
                     return parsed
             except json.JSONDecodeError as e:
-                logger.debug("JSON parse attempt failed: %s", str(e)[:100])
-                pass
+                logger.debug(
+                    f"JSON parse attempt {idx} failed at pos {e.pos}: {str(e.msg)}"
+                )
 
-        # Best-effort: extract outermost JSON object from noisy content.
+            # Try fixing trailing comma on the original
+            if candidate.endswith(","):
+                try:
+                    fixed = json.loads(candidate[:-1])
+                    if isinstance(fixed, dict):
+                        logger.debug(
+                            f"Successfully parsed JSON after removing trailing comma (candidate {idx})"
+                        )
+                        return fixed
+                except json.JSONDecodeError:
+                    pass
+
+        # Strategy 3: Best-effort extraction of outermost JSON object
         start_idx = text.find("{")
         end_idx = text.rfind("}")
         if start_idx != -1 and end_idx != -1 and end_idx > start_idx:
             snippet = text[start_idx : end_idx + 1]
+            logger.debug(
+                f"Attempting to parse extracted JSON snippet (length: {len(snippet)})"
+            )
+
+            # Pre-process
+            cleaned_snippet = snippet
+            cleaned_snippet = re.sub(r",(\s*[\]}])", r"\1", cleaned_snippet)
+            cleaned_snippet = re.sub(r':\s*"null"', r": null", cleaned_snippet)
+            cleaned_snippet = re.sub(r':\s*"null"\s*,', r": null,", cleaned_snippet)
+
+            # Try direct parsing
             try:
-                parsed = json.loads(snippet)
+                parsed = json.loads(cleaned_snippet)
                 if isinstance(parsed, dict):
                     logger.debug("Successfully parsed JSON from extracted snippet")
                     return parsed
             except json.JSONDecodeError as e:
-                logger.debug("Snippet JSON parse failed: %s", str(e)[:100])
-                pass
+                logger.debug(f"Snippet JSON parse failed at pos {e.pos}: {str(e.msg)}")
 
-        logger.error("Could not extract valid JSON from LLM response: %s", text[:300])
+                # Strategy 4: Truncate from error position and recover
+                if e.pos and e.pos > 0:
+                    for trim_pos in range(e.pos, max(e.pos - 500, 0), -1):
+                        try:
+                            trimmed = snippet[:trim_pos]
+                            # Pre-process
+                            trimmed = re.sub(r",(\s*[\]}])", r"\1", trimmed)
+                            trimmed = re.sub(r':\s*"null"', r": null", trimmed)
+
+                            # Skip incomplete strings
+                            unclosed_quotes = trimmed.count('"') % 2
+                            if unclosed_quotes:
+                                last_quote = trimmed.rfind('"')
+                                if last_quote > 0 and last_quote < len(trimmed) - 1:
+                                    trimmed = trimmed[:last_quote]
+
+                            # Close any open structures
+                            open_braces = trimmed.count("{") - trimmed.count("}")
+                            open_brackets = trimmed.count("[") - trimmed.count("]")
+
+                            if open_braces > 0 or open_brackets > 0:
+                                if trimmed.rstrip().endswith(","):
+                                    trimmed = trimmed.rstrip()[:-1]
+                                if trimmed.rstrip().endswith("["):
+                                    trimmed = trimmed.rstrip()[:-1]
+                                    trimmed = trimmed.rstrip()
+
+                            if open_braces > 0:
+                                trimmed += "}" * open_braces
+                            if open_brackets > 0:
+                                trimmed += "]" * open_brackets
+
+                            parsed = json.loads(trimmed)
+                            if isinstance(parsed, dict):
+                                logger.warning(
+                                    f"Successfully recovered JSON from error position {e.pos} (trimmed to {len(trimmed)} chars)"
+                                )
+                                return parsed
+                        except (json.JSONDecodeError, ValueError):
+                            continue
+
+                # Strategy 5: Try backwards from end, finding last complete structure
+                for trim_pos in range(len(snippet) - 1, max(len(snippet) - 500, 0), -1):
+                    trimmed = snippet[:trim_pos]
+
+                    # Pre-process
+                    trimmed = re.sub(r",(\s*[\]}])", r"\1", trimmed)
+                    trimmed = re.sub(r':\s*"null"', r": null", trimmed)
+
+        logger.error(
+            f"Could not extract valid JSON from LLM response. Text length: {len(text)}, Preview: {text[:300]}..."
+        )
+
+        # Write failed JSON to debug file if debug mode is enabled
+        settings = get_settings()
+        if settings.debug:
+            try:
+                tmp_dir = Path("tmp")
+                tmp_dir.mkdir(exist_ok=True)
+
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
+                debug_file = tmp_dir / f"failed_json_{timestamp}.txt"
+
+                with open(debug_file, "w", encoding="utf-8") as f:
+                    f.write("FAILED JSON PARSING DEBUG LOG\n")
+                    f.write("=" * 80 + "\n")
+                    f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+                    f.write(f"Text Length: {len(text)}\n")
+                    f.write("=" * 80 + "\n\n")
+                    f.write("RAW RESPONSE:\n")
+                    f.write("-" * 80 + "\n")
+                    f.write(text)
+                    f.write("\n" + "-" * 80 + "\n")
+
+                logger.debug(f"Dumped failed JSON to {debug_file}")
+            except Exception as dump_error:
+                logger.warning(f"Failed to write debug JSON file: {dump_error}")
+
         return {"questions": []}
 
     @classmethod
