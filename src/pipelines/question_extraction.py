@@ -6,7 +6,7 @@ import logging
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, Optional, TypedDict
 
 from src.llm.base import GenerationConfig
 from src.shared.base.base_pipeline import BasePipeline
@@ -27,9 +27,15 @@ class ExtractedQuestion(TypedDict):
     image_list: list[str]
 
 
+class OverlapContent(TypedDict):
+    previous_page: int
+    content: str
+
+
 class QuestionExtractionInput(TypedDict):
     page_number: int
     markdown_content: str
+    overlap_content: Optional[OverlapContent]
 
 
 class QuestionExtractionOutput(TypedDict):
@@ -81,6 +87,7 @@ class QuestionExtractionPipeline(
     ) -> QuestionExtractionOutput:
         page_number = payload["page_number"]
         markdown_content = (payload.get("markdown_content") or "").strip()
+        overlap_content = payload.get("overlap_content")
 
         if not markdown_content:
             return {"page_number": page_number, "questions": []}
@@ -88,7 +95,17 @@ class QuestionExtractionPipeline(
         if self.llm_client is None:
             return {"page_number": page_number, "questions": []}
 
-        prompt = self.prompt_template.format(markdown_content=markdown_content)
+        # Build overlap section for the prompt
+        overlap_section = ""
+        if overlap_content and isinstance(overlap_content, dict):
+            previous_page = overlap_content.get("previous_page", page_number - 1)
+            overlap_text = (overlap_content.get("content") or "").strip()
+            if overlap_text:
+                overlap_section = f"\nOverlap content from page {previous_page} (to resolve questions spanning pages):\n{overlap_text}"
+
+        prompt = self.prompt_template.format(
+            markdown_content=markdown_content, overlap_section=overlap_section
+        )
 
         try:
             raw_response = await asyncio.to_thread(
@@ -159,6 +176,9 @@ class QuestionExtractionPipeline(
             # Pre-process to fix common LLM JSON errors
             cleaned = candidate
 
+            # Normalize backslashes (escaping unescaped ones)
+            cleaned = QuestionExtractionPipeline._normalize_backslashes(cleaned)
+
             # Fix trailing commas before closing brackets/braces
             cleaned = re.sub(r",(\s*[\]}])", r"\1", cleaned)
 
@@ -200,6 +220,9 @@ class QuestionExtractionPipeline(
 
             # Pre-process
             cleaned_snippet = snippet
+            cleaned_snippet = QuestionExtractionPipeline._normalize_backslashes(
+                cleaned_snippet
+            )
             cleaned_snippet = re.sub(r",(\s*[\]}])", r"\1", cleaned_snippet)
             cleaned_snippet = re.sub(r':\s*"null"', r": null", cleaned_snippet)
             cleaned_snippet = re.sub(r':\s*"null"\s*,', r": null,", cleaned_snippet)
@@ -219,6 +242,9 @@ class QuestionExtractionPipeline(
                         try:
                             trimmed = snippet[:trim_pos]
                             # Pre-process
+                            trimmed = QuestionExtractionPipeline._normalize_backslashes(
+                                trimmed
+                            )
                             trimmed = re.sub(r",(\s*[\]}])", r"\1", trimmed)
                             trimmed = re.sub(r':\s*"null"', r": null", trimmed)
 
@@ -259,6 +285,7 @@ class QuestionExtractionPipeline(
                     trimmed = snippet[:trim_pos]
 
                     # Pre-process
+                    trimmed = QuestionExtractionPipeline._normalize_backslashes(trimmed)
                     trimmed = re.sub(r",(\s*[\]}])", r"\1", trimmed)
                     trimmed = re.sub(r':\s*"null"', r": null", trimmed)
 
@@ -292,6 +319,26 @@ class QuestionExtractionPipeline(
                 logger.warning(f"Failed to write debug JSON file: {dump_error}")
 
         return {"questions": []}
+
+    @staticmethod
+    def _normalize_backslashes(text: str) -> str:
+        """Normalize unescaped backslashes in JSON strings.
+        
+        Escapes backslashes that are not part of valid JSON escape sequences.
+        Valid JSON escapes: \", \\, \\/, \b, \f, \n, \r, \t, \\uXXXX
+        
+        Args:
+            text: Raw JSON text potentially containing unescaped backslashes
+            
+        Returns:
+            Text with unescaped backslashes properly escaped as \\
+        """
+        # Replace backslashes that are:
+        # 1. NOT preceded by another backslash (negative lookbehind: (?<!\\))
+        # 2. NOT followed by valid JSON escape characters (negative lookahead: (?![\"\\\/bfnrtu]))
+        # This prevents double-escaping already-escaped backslashes like \\frac
+        normalized = re.sub(r"(?<!\\)\\(?![\"\\\/bfnrtu])", r"\\\\", text)
+        return normalized
 
     @classmethod
     def _normalize_questions(cls, questions_raw: Any) -> list[ExtractedQuestion]:

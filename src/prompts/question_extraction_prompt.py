@@ -3,6 +3,7 @@ You are extracting questions from a single exam page.
 
 Use BOTH inputs as context:
 1) The page image (source of truth).
+3) The overlap content (tail of the previous page, if available) to resolve questions spanning page boundaries.
 2) The page markdown (already OCR + normalized).
 
 Your task is to return ONLY valid JSON. The output MUST be valid JSON.
@@ -22,7 +23,10 @@ STRICT RULES:
 9. answers: For multiple_choice, return JSON array like ["A. Option 1", "B. Option 2"]. For true_false, return ["True", "False"]. For short_answer/essay, must be null.
 10. correct_answer: The correct answer string, or null if unknown.
 11. image_list: JSON array of image/table references tied to this question (from <img> tags or visible regions), or [] if none.
+12. If overlap_content is provided (from previous page), use it to understand the context of questions that may span across page boundaries. Do NOT extract questions solely from the overlap_content; it is only for context.
 
-Page markdown:
+Current page markdown:
+{overlap_section}
+
 {markdown_content}
 """.strip()

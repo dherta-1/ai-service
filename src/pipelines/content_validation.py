@@ -71,7 +71,9 @@ class ContentValidationPipeline(
                 self.llm_client.generate_file,
                 str(image_path),
                 prompt,
-                GenerationConfig(temperature=0.1, response_mime_type="text/plain"),
+                GenerationConfig(
+                    temperature=0.1, max_tokens=2048, response_mime_type="text/plain"
+                ),
             )
             normalized_content = self._extract_markdown(raw_response)
             if not normalized_content:

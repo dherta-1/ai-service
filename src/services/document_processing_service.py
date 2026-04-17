@@ -14,6 +14,7 @@ from PIL import Image
 from src.pipelines.content_extraction import ContentExtractionPipeline
 from src.pipelines.question_extraction import QuestionExtractionPipeline
 from src.pipelines.content_validation import ContentValidationPipeline
+from src.pipelines.page_head_overlap import PageHeadOverlapPipeline
 from src.prompts.content_validation_prompt import content_validation_prompt
 from src.prompts.question_extraction_prompt import question_extraction_prompt
 
@@ -29,6 +30,7 @@ class DocumentProcessingService:
         s3_client,
         llm_client=None,
         s3_bucket: Optional[str] = None,
+        page_overlap_char_count: int = 500,
     ):
         self.ocr_client = ocr_client
         self.s3_client = s3_client
@@ -44,6 +46,9 @@ class DocumentProcessingService:
         self.validation_pipeline = ContentValidationPipeline(
             llm_client=self.llm_client,
             prompt_template=content_validation_prompt,
+        )
+        self.overlap_pipeline = PageHeadOverlapPipeline(
+            overlap_char_count=page_overlap_char_count
         )
         self.question_pipeline = QuestionExtractionPipeline(
             llm_client=self.llm_client,
@@ -82,6 +87,7 @@ class DocumentProcessingService:
             crop_dir.mkdir(parents=True, exist_ok=True)
 
             pages_output: list[dict[str, object]] = []
+            previous_page_content: Optional[str] = None
 
             for page_index, image_path in enumerate(page_image_paths):
                 try:
@@ -133,10 +139,37 @@ class DocumentProcessingService:
                             f"Validation pipeline missing required keys. Got: {list(validated.keys())}"
                         )
 
+                    # Apply page head overlap pipeline to handle cross-page questions
+                    overlap_result = await self.overlap_pipeline.run(
+                        {
+                            "page_number": validated["page_number"],
+                            "markdown_content": validated["content"],
+                            "previous_page_content": previous_page_content,
+                        }
+                    )
+                    logger.debug(
+                        f"Page head overlap result for page {page_index}: {overlap_result}"
+                    )
+
+                    # Validate overlap output structure
+                    if not isinstance(overlap_result, dict):
+                        raise ValueError(
+                            f"Page head overlap pipeline returned invalid type: {type(overlap_result).__name__}"
+                        )
+                    if (
+                        "page_number" not in overlap_result
+                        or "markdown_content" not in overlap_result
+                    ):
+                        raise KeyError(
+                            f"Page head overlap pipeline missing required keys. Got: {list(overlap_result.keys())}"
+                        )
+
+                    # Extract question using overlap context
                     questions = await self.question_pipeline.run(
                         {
-                            "page_number": extracted["page_number"],
-                            "markdown_content": validated["content"],
+                            "page_number": overlap_result["page_number"],
+                            "markdown_content": overlap_result["markdown_content"],
+                            "overlap_content": overlap_result.get("overlap_content"),
                         }
                     )
                     logger.debug(
@@ -160,6 +193,9 @@ class DocumentProcessingService:
                             "questions": questions["questions"],
                         }
                     )
+
+                    # Store current page content for next page's overlap
+                    previous_page_content = validated["content"]
                 except Exception as page_error:
                     logger.error(
                         f"Failed to process page {page_index}: {page_error}",
