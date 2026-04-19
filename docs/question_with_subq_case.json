@@ -1,0 +1,52 @@
+[
+  {
+    "question_text": "Cho hàm số $f(x)=2\\cos x+x$.",
+    "question_type": "essay",
+    "difficulty": null,
+    "subject": "math",
+    "topic": "calculus",
+    "answers": null,
+    "correct_answer": null,
+    "image_list": []
+  },
+  {
+    "question_text": "a) $f(0)=2; f\\left(\\frac{\\pi}{2}\\right)=\\frac{\\pi}{2}$.",
+    "question_type": "true_false",
+    "difficulty": "easy",
+    "subject": "math",
+    "topic": "trigonometry",
+    "answers": "[\"True\", \"False\"]",
+    "correct_answer": "True",
+    "image_list": []
+  },
+  {
+    "question_text": "b) Đạo hàm của hàm số đã cho là $f^{\\prime}(x)=2\\sin x+1$.",
+    "question_type": "true_false",
+    "difficulty": "easy",
+    "subject": "math",
+    "topic": "calculus",
+    "answers": "[\"True\", \"False\"]",
+    "correct_answer": "False",
+    "image_list": []
+  },
+  {
+    "question_text": "c) Nghiệm của phương trình $f^{\\prime}(x)=0$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\frac{\\pi}{6}$.",
+    "question_type": "true_false",
+    "difficulty": "medium",
+    "subject": "math",
+    "topic": "calculus",
+    "answers": "[\"True\", \"False\"]",
+    "correct_answer": "False",
+    "image_list": []
+  },
+  {
+    "question_text": "d) Giá trị lớn nhất của $f(x)$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\sqrt{3}+\\frac{\\pi}{6}$.",
+    "question_type": "true_false",
+    "difficulty": "hard",
+    "subject": "math",
+    "topic": "calculus",
+    "answers": "[\"True\", \"False\"]",
+    "correct_answer": "False",
+    "image_list": []
+  }
+]

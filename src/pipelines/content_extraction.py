@@ -194,11 +194,11 @@ class ContentExtractionPipeline(
 
             content_type = item.get("content_type", "text").lower()
 
-            if content_type == "text" or content_type == "formula":
+            if content_type in {"text", "table", "formula"}:
                 markdown_parts.append(content)
                 continue
 
-            if content_type in {"image", "figure", "table", "chart", "graphic"}:
+            if content_type in {"image", "figure", "chart", "graphic"}:
                 path = (
                     item.get("illustration_presigned_url")
                     or item.get("illustration_s3_key")

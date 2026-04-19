@@ -359,6 +359,7 @@ class QuestionExtractionPipeline(
             subject = cls._normalize_subject(item.get("subject"))
             topic = cls._optional_str(item.get("topic"))
             answers = cls._normalize_answers(item.get("answers"), question_type)
+            sub_questions = cls._normalize_sub_questions(item.get("sub_questions", []))
             correct_answer = cls._optional_str(item.get("correct_answer"))
             image_list = cls._normalize_image_list(item.get("image_list"))
 
@@ -372,6 +373,7 @@ class QuestionExtractionPipeline(
                     "answers": answers,
                     "correct_answer": correct_answer,
                     "image_list": image_list,
+                    "sub_questions": sub_questions,
                 }
             )
 
@@ -394,6 +396,7 @@ class QuestionExtractionPipeline(
             "true/false": QuestionType.TRUE_FALSE.value,
             "true false": QuestionType.TRUE_FALSE.value,
             "short answer": QuestionType.SHORT_ANSWER.value,
+            "composite": QuestionType.COMPOSITE.value,
         }
         normalized = aliases.get(raw, raw)
         allowed = {item.value for item in QuestionType}
@@ -454,6 +457,43 @@ class QuestionExtractionPipeline(
             pass
 
         return text
+
+    @staticmethod
+    def _normalize_sub_questions(value: Any) -> list[ExtractedQuestion]:
+        if not isinstance(value, list):
+            return []
+
+        normalized_subs: list[ExtractedQuestion] = []
+        for item in value:
+            if not isinstance(item, dict):
+                continue
+
+            sub_question_text = str(
+                item.get("sub_question_text") or item.get("question_text") or ""
+            ).strip()
+            if not sub_question_text:
+                continue
+
+            question_type = QuestionExtractionPipeline._normalize_question_type(
+                item.get("question_type")
+            )
+            answers = QuestionExtractionPipeline._normalize_answers(
+                item.get("answers"), question_type
+            )
+            correct_answer = QuestionExtractionPipeline._optional_str(
+                item.get("correct_answer")
+            )
+
+            normalized_subs.append(
+                {
+                    "sub_question_text": sub_question_text,
+                    "question_type": question_type,
+                    "answers": answers,
+                    "correct_answer": correct_answer,
+                }
+            )
+
+        return normalized_subs
 
     @staticmethod
     def _normalize_image_list(value: Any) -> list[str]:

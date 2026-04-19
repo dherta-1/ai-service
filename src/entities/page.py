@@ -1,6 +1,7 @@
 from src.shared.base.base_entity import BaseEntity
 from src.entities.document import Document
 from peewee import ForeignKeyField, IntegerField, TextField
+from playhouse.postgres_ext import BinaryJSONField
 
 
 class Page(BaseEntity):
@@ -9,7 +10,7 @@ class Page(BaseEntity):
     page_number = IntegerField()
     content = TextField(null=True)  # Store extracted raw markdown content of the page
     validated_content = TextField(null=True)  # Store validated content after processing
-    image_list = TextField(
+    image_list = BinaryJSONField(
         null=True
     )  # JSON string to store list of file ids (e.g., ["file_id1", "file_id2", ...])
 

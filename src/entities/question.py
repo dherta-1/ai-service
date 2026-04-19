@@ -1,6 +1,7 @@
 from src.shared.base.base_entity import BaseEntity
 from src.entities.page import Page
 from peewee import CharField, ForeignKeyField, TextField
+from playhouse.postgres_ext import BinaryJSONField
 
 
 class Question(BaseEntity):
@@ -21,15 +22,17 @@ class Question(BaseEntity):
     topic = CharField(
         max_length=255, null=True
     )  # Optional topic for further categorization (e.g., "algebra", "geometry", etc.)
-
-    answers = TextField(
+    sub_questions = BinaryJSONField(
+        null=True
+    )  # For composite questions, store list of sub-questions as JSON string
+    answers = BinaryJSONField(
         null=True
     )  # Store possible answers for multiple choice questions (as JSON string)
-    correct_answer = TextField(
+    correct_answer = BinaryJSONField(
         null=True
     )  # Store the correct answer for the question, support both text and multiple choice, has explanation field for the correct answer
 
-    image_list = TextField(
+    image_list = BinaryJSONField(
         null=True
     )  # JSON string to store list of file ids (e.g., ["file_id1", "file_id2", ...])
 

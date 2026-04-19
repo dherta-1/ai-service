@@ -6,6 +6,9 @@ class QuestionType(str, Enum):
     TRUE_FALSE = "true_false"
     SHORT_ANSWER = "short_answer"
     ESSAY = "essay"
+    COMPOSITE = (
+        "composite"  # For questions that have multiple sub-questions of different types
+    )
 
 
 class DifficultyLevel(str, Enum):

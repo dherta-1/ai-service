@@ -86,7 +86,9 @@ class GeminiClient(BaseLLMClient):
                 config=self._create_generation_config(config),
                 **kwargs,
             )
-            logger.info(f"Token usage for generate: {response.count_tokens}")
+            logger.info(
+                f"Token usage for chat: {response.usage_metadata.total_token_count}"
+            )
             if response.text:
                 return response.text
             else:
@@ -126,7 +128,9 @@ class GeminiClient(BaseLLMClient):
                 config=self._create_generation_config(config),
                 **kwargs,
             )
-            logger.info(f"Token usage for chat: {response.count_tokens}")
+            logger.info(
+                f"Token usage for chat: {response.usage_metadata.total_token_count}"
+            )
             if response.text:
                 return response.text
             else:
@@ -251,6 +255,9 @@ class GeminiClient(BaseLLMClient):
                 contents=contents,
                 config=self._create_generation_config(config),
                 **kwargs,
+            )
+            logger.info(
+                f"Token usage for chat: {response.usage_metadata.total_token_count}"
             )
             if response.text:
                 return response.text

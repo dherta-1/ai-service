@@ -49,9 +49,11 @@ def _map_page(raw_page: dict[str, Any], page_idx: int) -> OCRPageResult:
             continue
 
         bbox = BBoxRect.from_sequence(bbox_values)
-        raw_label = str(
-            _get(block, "block_label") or _get(block, "label") or "text"
-        ).strip().lower()
+        raw_label = (
+            str(_get(block, "block_label") or _get(block, "label") or "text")
+            .strip()
+            .lower()
+        )
         content_type = _normalize_content_type(raw_label)
         content = str(_get(block, "block_content") or _get(block, "content") or "")
         accuracy = _match_layout_score(bbox, raw_label, layout_boxes)
@@ -73,9 +75,11 @@ def _normalize_content_type(label: str) -> str:
     normalized = label.strip().lower()
     if normalized == "seal":
         return "seal"
+    if normalized == "table":
+        return "table"
     if normalized in {"formula", "equation", "math"}:
         return "formula"
-    if normalized in {"image", "figure", "table", "chart", "graphic"}:
+    if normalized in {"image", "figure", "chart", "graphic"}:
         return "image"
     return "text"
 
@@ -298,7 +302,9 @@ def _normalize_formula_candidates(formula_res_list: Any) -> list[dict[str, Any]]
     return candidates
 
 
-def _best_candidate_text(target_bbox: list[float], candidates: list[dict[str, Any]]) -> str:
+def _best_candidate_text(
+    target_bbox: list[float], candidates: list[dict[str, Any]]
+) -> str:
     target = BBoxRect.from_sequence(target_bbox)
     best_text = ""
     best_iou = 0.0
@@ -313,7 +319,9 @@ def _best_candidate_text(target_bbox: list[float], candidates: list[dict[str, An
     return best_text
 
 
-def _join_candidate_texts(target_bbox: list[float], candidates: list[dict[str, Any]]) -> str:
+def _join_candidate_texts(
+    target_bbox: list[float], candidates: list[dict[str, Any]]
+) -> str:
     target = BBoxRect.from_sequence(target_bbox)
     matched: list[tuple[float, str]] = []
     for cand in candidates:
