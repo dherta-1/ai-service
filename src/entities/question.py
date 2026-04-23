@@ -29,7 +29,7 @@ class Question(BaseEntity):
     answers = BinaryJSONField(
         null=True
     )  # Store possible answers for multiple choice questions (as JSON string)
-    correct_answer = BinaryJSONField(
+    correct_answer = TextField(
         null=True
     )  # Store the correct answer for the question, support both text and multiple choice, has explanation field for the correct answer
 

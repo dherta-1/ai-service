@@ -86,18 +86,13 @@ class QuestionEmbeddingPipeline(BasePipeline):
                 )
                 all_vectors.extend([None] * len(batch))
 
-        # Write vectors back
+        # Write vectors back to parent questions only
+        # For composite questions, embedding is the concatenated parent+sub text,
+        # but we store the vector on the parent Question record, not in sub_questions
         for entry, vector in zip(meta, all_vectors):
             q = entry["question"]
-            if entry["type"] == "main":
-                if vector is not None:
-                    q.vector_embedding = vector
-            else:
-                idx = entry["sub_idx"]
-                subs: list[dict] = q.sub_questions or []
-                if idx < len(subs) and vector is not None:
-                    subs[idx]["vector"] = vector
-                    q.sub_questions = subs
+            if vector is not None:
+                q.vector_embedding = vector
 
         # Persist in a thread (Peewee is synchronous)
         def _save_all():

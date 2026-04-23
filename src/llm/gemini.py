@@ -234,8 +234,8 @@ class GeminiClient(BaseLLMClient):
                 logger.error(f"Error closing Gemini client: {e}")
 
     @retry_sync(RetryConfig(max_retries=3))
-    def _embed_content(self, text: str, **kwargs) -> list[float]:
-        """Internal method with retry logic for embedding a single text"""
+    def _embed_batch(self, texts: list[str], **kwargs) -> list[list[float]]:
+        """Internal method with retry logic for embedding a batch of texts in one request"""
         config_kwargs = {"output_dimensionality": self.embedding_dimension}
 
         # task_type is only supported for gemini-embedding-001, not gemini-embedding-2
@@ -244,21 +244,24 @@ class GeminiClient(BaseLLMClient):
 
         response = self.client.models.embed_content(
             model=self.embedding_model,
-            contents=text,
+            contents=texts,
             config=types.EmbedContentConfig(**config_kwargs),
             **kwargs,
         )
 
-        # API returns embeddings (plural) as a list; extract the first element
+        # API returns embeddings (plural) as a list
         if response and hasattr(response, "embeddings") and response.embeddings:
-            embedding_obj = response.embeddings[0]
-            # Extract the vector values
-            if hasattr(embedding_obj, "values"):
-                return list(embedding_obj.values)
-            return list(embedding_obj)
+            embeddings = []
+            for embedding_obj in response.embeddings:
+                # Extract the vector values
+                if hasattr(embedding_obj, "values"):
+                    embeddings.append(list(embedding_obj.values))
+                else:
+                    embeddings.append(list(embedding_obj))
+            return embeddings
 
-        logger.warning(f"Empty embedding response for text: {text[:50]}...")
-        raise ValueError("Failed to generate embedding")
+        logger.warning(f"Empty embedding response for batch of {len(texts)} texts")
+        raise ValueError("Failed to generate embeddings")
 
     def embed(self, input: str | list[str], **kwargs) -> list[list[float]]:
         """
@@ -281,11 +284,8 @@ class GeminiClient(BaseLLMClient):
             raise ValueError("Input cannot be empty")
 
         try:
-            embeddings = []
-            for text in input:
-                embedding = self._embed_content(text, **kwargs)
-                embeddings.append(embedding)
-
+            # Send all texts in a single batch request
+            embeddings = self._embed_batch(input, **kwargs)
             logger.info(f"Generated {len(embeddings)} embedding(s) using Gemini")
             return embeddings
 

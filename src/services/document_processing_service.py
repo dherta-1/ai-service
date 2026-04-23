@@ -2,16 +2,21 @@
 
 from __future__ import annotations
 
+import json
 import asyncio
 import io
 import logging
 import re
+import shutil
+import tempfile
 import uuid
 from pathlib import Path
 from typing import Optional
 
 import fitz
 from PIL import Image
+
+logger = logging.getLogger(__name__)
 
 from src.entities.document import Document
 from src.entities.file_metadata import FileMetadata
@@ -53,8 +58,6 @@ class DocumentProcessingService:
         self.s3_client = s3_client
         self.llm_client = llm_client
         self.s3_bucket = s3_bucket
-        self.output_dir = Path("output")
-        self.output_dir.mkdir(parents=True, exist_ok=True)
 
         self.extraction_pipeline = ContentExtractionPipeline(
             ocr_client=self.ocr_client,
@@ -103,16 +106,26 @@ class DocumentProcessingService:
 
         bucket = s3_bucket or self.s3_bucket
 
-        # Upload original file to S3
+        # Upload original PDF file to S3 and save metadata
+        pdf_s3_key = f"{s3_prefix}/{file_id}/input/{original_filename}"
         if bucket:
-            key = f"{s3_prefix}/{file_id}/input/{original_filename}"
-            self.s3_client.upload_file(str(file_path), bucket, key)
+            self.s3_client.upload_file(str(file_path), bucket, pdf_s3_key)
 
-        # Create Document record (status=processing)
+        # Register original PDF in file_metadata
+        pdf_file_size = file_path.stat().st_size
+        pdf_fm_id = await asyncio.to_thread(
+            self._register_image_file,
+            object_key=pdf_s3_key,
+            name=original_filename,
+            size=pdf_file_size,
+            mime_type="application/pdf",
+        )
+
+        # Create Document record (status=processing) with PDF file reference
         document = await asyncio.to_thread(
             self._doc_repo.create,
             name=original_filename,
-            file_id=file_id,
+            file_id=pdf_fm_id,
             status=Status.PROCESSING.value,
             progress=0.0,
         )
@@ -164,45 +177,60 @@ class DocumentProcessingService:
         s3_prefix: str,
         document: Document,
     ) -> list[dict]:
-        page_image_paths: list[Path] = []
-        for page_index in range(doc.page_count):
-            page = doc[page_index]
-            image_path = self._render_page_to_image(file_id, page_index, page)
-            page_image_paths.append(image_path)
+        # Create temporary directory for this document's processing
+        temp_dir = Path(tempfile.mkdtemp(prefix=f"doc_{file_id}_"))
+        try:
+            page_image_paths: list[Path] = []
+            page_image_ids: list[Optional[str]] = []
+            for page_index in range(doc.page_count):
+                page = doc[page_index]
+                image_path, fm_id = await self._render_and_save_page_image(
+                    file_id, page_index, page, bucket, s3_prefix, temp_dir
+                )
+                page_image_paths.append(image_path)
+                page_image_ids.append(fm_id)
 
-        crop_dir = self.output_dir / file_id / "crops"
-        crop_dir.mkdir(parents=True, exist_ok=True)
+            crop_dir = temp_dir / "crops"
+            crop_dir.mkdir(parents=True, exist_ok=True)
 
-        pages_output: list[dict] = []
-        previous_page_content: Optional[str] = None
-        total = len(page_image_paths)
+            pages_output: list[dict] = []
+            previous_page_content: Optional[str] = None
+            total = len(page_image_paths)
 
-        for page_index, image_path in enumerate(page_image_paths):
-            page_data = await self._process_single_page(
-                image_path=image_path,
-                page_index=page_index,
-                crop_dir=crop_dir,
-                file_id=file_id,
-                bucket=bucket,
-                s3_prefix=s3_prefix,
-                previous_page_content=previous_page_content,
-                document=document,
-            )
-            pages_output.append(
-                {
-                    "page_number": page_data["page_number"],
-                    "content": page_data["content"],
-                    "questions": [self._question_to_dict(q) for q in page_data["questions"]],
-                }
-            )
-            previous_page_content = page_data["content"]
+            for page_index, (image_path, page_fm_id) in enumerate(
+                zip(page_image_paths, page_image_ids)
+            ):
+                page_data = await self._process_single_page(
+                    image_path=image_path,
+                    page_index=page_index,
+                    crop_dir=crop_dir,
+                    file_id=file_id,
+                    bucket=bucket,
+                    s3_prefix=s3_prefix,
+                    previous_page_content=previous_page_content,
+                    document=document,
+                    page_fm_id=page_fm_id,
+                )
+                pages_output.append(
+                    {
+                        "page_number": page_data["page_number"],
+                        "content": page_data["content"],
+                        "questions": [
+                            self._question_to_dict(q) for q in page_data["questions"]
+                        ],
+                    }
+                )
+                previous_page_content = page_data["content"]
 
-            progress = round((page_index + 1) / total * 100.0, 1)
-            await asyncio.to_thread(
-                self._doc_repo.update, document.id, progress=progress
-            )
+                progress = round((page_index + 1) / total * 100.0, 1)
+                await asyncio.to_thread(
+                    self._doc_repo.update, document.id, progress=progress
+                )
 
-        return pages_output
+            return pages_output
+        finally:
+            # Clean up temporary directory
+            shutil.rmtree(temp_dir, ignore_errors=True)
 
     async def _process_single_page(
         self,
@@ -214,6 +242,7 @@ class DocumentProcessingService:
         s3_prefix: str,
         previous_page_content: Optional[str],
         document: Document,
+        page_fm_id: Optional[str] = None,
     ) -> dict:
         # --- Content extraction (OCR + crop upload) ---
         extracted = await self.extraction_pipeline.run(
@@ -259,7 +288,9 @@ class DocumentProcessingService:
                 "overlap_content": overlap_result.get("overlap_content"),
             }
         )
-        self._assert_keys(questions_result, ["page_number", "questions"], "question_extraction")
+        self._assert_keys(
+            questions_result, ["page_number", "questions"], "question_extraction"
+        )
 
         page_content = validated["content"]
         raw_questions: list[dict] = questions_result["questions"]
@@ -270,6 +301,7 @@ class DocumentProcessingService:
             document=document,
             page_number=validated["page_number"],
             content=page_content,
+            page_image_id=page_fm_id,
         )
 
         # --- Ensure subject/topic taxonomy exists, then persist Questions ---
@@ -280,13 +312,9 @@ class DocumentProcessingService:
             try:
                 await self.embedding_pipeline.run({"questions": question_orms})
             except Exception as exc:
-                logger.warning(
-                    "Embedding failed for page %d: %s", page_index + 1, exc
-                )
+                logger.warning("Embedding failed for page %d: %s", page_index + 1, exc)
 
-        logger.info(
-            "Page %d: saved %d questions", page_index + 1, len(question_orms)
-        )
+        logger.info("Page %d: saved %d questions", page_index + 1, len(question_orms))
         return {
             "page_number": validated["page_number"],
             "content": page_content,
@@ -356,6 +384,19 @@ class DocumentProcessingService:
             saved = []
             for q in raw_questions:
                 image_list = self._resolve_image_list(q.get("image_list") or [])
+
+                # Normalize answers: could be string (JSON), list, or None
+                answers_raw = q.get("answers")
+                if isinstance(answers_raw, str):
+                    try:
+                        answers = json.loads(answers_raw)
+                    except (json.JSONDecodeError, ValueError):
+                        answers = None
+                elif isinstance(answers_raw, list):
+                    answers = answers_raw
+                else:
+                    answers = None
+
                 orm = self._question_repo.create(
                     page=page_orm,
                     question_text=q.get("question_text", ""),
@@ -363,10 +404,10 @@ class DocumentProcessingService:
                     difficulty=q.get("difficulty"),
                     subject=q.get("subject"),
                     topic=q.get("topic"),
-                    answers=q.get("answers"),
+                    answers=answers,
                     correct_answer=q.get("correct_answer"),
-                    sub_questions=q.get("sub_questions") or [],
-                    image_list=image_list,
+                    sub_questions=q.get("sub_questions") or None,
+                    image_list=image_list if image_list else None,
                     status=0,
                 )
                 saved.append(orm)
@@ -397,7 +438,9 @@ class DocumentProcessingService:
                     resolved.append(str(fm.id))
                     continue
             # Fallback: skip unknown references
-            logger.warning("Could not resolve image reference to file_metadata: %s", entry)
+            logger.warning(
+                "Could not resolve image reference to file_metadata: %s", entry
+            )
         return resolved
 
     # ------------------------------------------------------------------
@@ -422,18 +465,56 @@ class DocumentProcessingService:
     # Page rendering
     # ------------------------------------------------------------------
 
-    def _render_page_to_image(
-        self, file_id: str, page_index: int, page: fitz.Page
-    ) -> Path:
+    async def _render_and_save_page_image(
+        self,
+        file_id: str,
+        page_index: int,
+        page: fitz.Page,
+        bucket: Optional[str],
+        s3_prefix: str,
+        temp_dir: Path,
+    ) -> tuple[Path, Optional[str]]:
+        """Render page to image, save temp for OCR processing, upload to S3, register in file_metadata.
+
+        Keeps temp file for processing (OCR/extraction), uploads to S3, and returns file_metadata_id.
+        Returns (local_temp_path, file_metadata_id)
+        """
         matrix = fitz.Matrix(2.0, 2.0)
         pix = page.get_pixmap(matrix=matrix, alpha=False)
         pil_image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
 
-        image_dir = self.output_dir / file_id / "pages"
+        image_dir = temp_dir / "pages"
         image_dir.mkdir(parents=True, exist_ok=True)
-        image_path = image_dir / f"page_{page_index + 1}.png"
-        pil_image.save(image_path, format="PNG")
-        return image_path
+        image_name = f"page_{page_index + 1}.png"
+        image_path = image_dir / image_name
+
+        def _save_temp():
+            pil_image.save(image_path, format="PNG")
+            return image_path
+
+        local_path = await asyncio.to_thread(_save_temp)
+
+        # Upload to S3 if configured and register in file_metadata
+        fm_id = None
+        if bucket:
+            s3_key = f"{s3_prefix}/{file_id}/pages/{image_name}"
+            await asyncio.to_thread(
+                self.s3_client.upload_file,
+                str(local_path),
+                bucket,
+                s3_key,
+            )
+            # Register in file_metadata
+            size = local_path.stat().st_size
+            fm_id = await asyncio.to_thread(
+                self._register_image_file,
+                object_key=s3_key,
+                name=image_name,
+                size=size,
+                mime_type="image/png",
+            )
+
+        return local_path, fm_id
 
     # ------------------------------------------------------------------
     # Validation
