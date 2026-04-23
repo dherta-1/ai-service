@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
+import re
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -11,14 +13,29 @@ from typing import Optional
 import fitz
 from PIL import Image
 
+from src.entities.document import Document
+from src.entities.file_metadata import FileMetadata
+from src.entities.page import Page
+from src.entities.question import Question
 from src.pipelines.content_extraction import ContentExtractionPipeline
-from src.pipelines.question_extraction import QuestionExtractionPipeline
 from src.pipelines.content_validation import ContentValidationPipeline
 from src.pipelines.page_head_overlap import PageHeadOverlapPipeline
+from src.pipelines.question_embedding import QuestionEmbeddingPipeline
+from src.pipelines.question_extraction import QuestionExtractionPipeline
 from src.prompts.content_validation_prompt import content_validation_prompt
 from src.prompts.question_extraction_prompt import question_extraction_prompt
+from src.repos.document_repo import DocumentRepository
+from src.repos.file_metadata_repo import FileMetadataRepository
+from src.repos.page_repo import PageRepository
+from src.repos.question_repo import QuestionRepository
+from src.repos.subject_repo import SubjectRepository
+from src.repos.topic_repo import TopicRepository
+from src.shared.constants.general import Status
 
 logger = logging.getLogger(__name__)
+
+# Regex to find presigned-URL <img> tags left by older pipeline runs
+_IMG_PRESIGNED_RE = re.compile(r'<img\s+src="[^"]*"\s+alt="[^"]*"\s*/>', re.IGNORECASE)
 
 
 class DocumentProcessingService:
@@ -54,6 +71,21 @@ class DocumentProcessingService:
             llm_client=self.llm_client,
             prompt_template=question_extraction_prompt,
         )
+        self.embedding_pipeline = QuestionEmbeddingPipeline(
+            llm_client=self.llm_client,
+        )
+
+        # Repos
+        self._doc_repo = DocumentRepository()
+        self._page_repo = PageRepository()
+        self._question_repo = QuestionRepository()
+        self._file_meta_repo = FileMetadataRepository()
+        self._subject_repo = SubjectRepository()
+        self._topic_repo = TopicRepository()
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
 
     async def process_document(
         self,
@@ -62,7 +94,7 @@ class DocumentProcessingService:
         s3_bucket: Optional[str] = None,
         s3_prefix: str = "document-extraction",
     ) -> dict[str, object]:
-        """Main flow: render pages, OCR extraction, then multimodal normalization."""
+        """Main flow: render pages → OCR → validate → extract questions → persist."""
         file_id = str(uuid.uuid4())
         file_path = Path(local_file_path)
 
@@ -70,151 +102,329 @@ class DocumentProcessingService:
             raise FileNotFoundError(f"Uploaded file not found: {local_file_path}")
 
         bucket = s3_bucket or self.s3_bucket
+
+        # Upload original file to S3
         if bucket:
             key = f"{s3_prefix}/{file_id}/input/{original_filename}"
             self.s3_client.upload_file(str(file_path), bucket, key)
 
-        doc = fitz.open(str(file_path))
+        # Create Document record (status=processing)
+        document = await asyncio.to_thread(
+            self._doc_repo.create,
+            name=original_filename,
+            file_id=file_id,
+            status=Status.PROCESSING.value,
+            progress=0.0,
+        )
 
         try:
-            page_image_paths: list[Path] = []
-            for page_index in range(doc.page_count):
-                page = doc[page_index]
-                image_path = self._render_page_to_image(file_id, page_index, page)
-                page_image_paths.append(image_path)
+            doc = fitz.open(str(file_path))
+            try:
+                pages_output = await self._process_pages(
+                    doc=doc,
+                    file_id=file_id,
+                    bucket=bucket,
+                    s3_prefix=s3_prefix,
+                    document=document,
+                )
+            finally:
+                doc.close()
 
-            crop_dir = self.output_dir / file_id / "crops"
-            crop_dir.mkdir(parents=True, exist_ok=True)
-
-            pages_output: list[dict[str, object]] = []
-            previous_page_content: Optional[str] = None
-
-            for page_index, image_path in enumerate(page_image_paths):
-                try:
-                    extracted = await self.extraction_pipeline.run(
-                        {
-                            "image_path": image_path,
-                            "page_index": page_index,
-                            "crop_dir": crop_dir,
-                            "file_id": file_id,
-                            "s3_prefix": s3_prefix,
-                            "bucket": bucket,
-                        }
-                    )
-                    logger.debug(
-                        f"Extraction result for page {page_index}: {extracted}"
-                    )
-
-                    # Validate extraction output structure
-                    if not isinstance(extracted, dict):
-                        raise ValueError(
-                            f"Extraction pipeline returned invalid type: {type(extracted).__name__}"
-                        )
-                    if (
-                        "page_number" not in extracted
-                        or "markdown_content" not in extracted
-                    ):
-                        raise KeyError(
-                            f"Extraction pipeline missing required keys. Got: {list(extracted.keys())}"
-                        )
-
-                    validated = await self.validation_pipeline.run(
-                        {
-                            "image_path": image_path,
-                            "page_number": extracted["page_number"],
-                            "markdown_content": extracted["markdown_content"],
-                        }
-                    )
-                    logger.debug(
-                        f"Validation result for page {page_index}: {validated}"
-                    )
-
-                    # Validate validation output structure
-                    if not isinstance(validated, dict):
-                        raise ValueError(
-                            f"Validation pipeline returned invalid type: {type(validated).__name__}"
-                        )
-                    if "page_number" not in validated or "content" not in validated:
-                        raise KeyError(
-                            f"Validation pipeline missing required keys. Got: {list(validated.keys())}"
-                        )
-
-                    # Apply page head overlap pipeline to handle cross-page questions
-                    overlap_result = await self.overlap_pipeline.run(
-                        {
-                            "page_number": validated["page_number"],
-                            "markdown_content": validated["content"],
-                            "previous_page_content": previous_page_content,
-                        }
-                    )
-                    logger.debug(
-                        f"Page head overlap result for page {page_index}: {overlap_result}"
-                    )
-
-                    # Validate overlap output structure
-                    if not isinstance(overlap_result, dict):
-                        raise ValueError(
-                            f"Page head overlap pipeline returned invalid type: {type(overlap_result).__name__}"
-                        )
-                    if (
-                        "page_number" not in overlap_result
-                        or "markdown_content" not in overlap_result
-                    ):
-                        raise KeyError(
-                            f"Page head overlap pipeline missing required keys. Got: {list(overlap_result.keys())}"
-                        )
-
-                    # Extract question using overlap context
-                    questions = await self.question_pipeline.run(
-                        {
-                            "page_number": overlap_result["page_number"],
-                            "markdown_content": overlap_result["markdown_content"],
-                            "overlap_content": overlap_result.get("overlap_content"),
-                        }
-                    )
-                    logger.debug(
-                        f"Question extraction result for page {page_index}: {questions}"
-                    )
-
-                    # Validate question extraction output structure
-                    if not isinstance(questions, dict):
-                        raise ValueError(
-                            f"Question extraction pipeline returned invalid type: {type(questions).__name__}"
-                        )
-                    if "page_number" not in questions or "questions" not in questions:
-                        raise KeyError(
-                            f"Question extraction pipeline missing required keys. Got: {list(questions.keys())}"
-                        )
-
-                    pages_output.append(
-                        {
-                            "page_number": validated["page_number"],
-                            "content": validated["content"],
-                            "questions": questions["questions"],
-                        }
-                    )
-
-                    # Store current page content for next page's overlap
-                    previous_page_content = validated["content"]
-                except Exception as page_error:
-                    logger.error(
-                        f"Failed to process page {page_index}: {page_error}",
-                        exc_info=True,
-                    )
-                    raise
+            # Mark document completed
+            await asyncio.to_thread(
+                self._doc_repo.update,
+                document.id,
+                status=Status.COMPLETED.value,
+                progress=100.0,
+            )
 
             return {
                 "file_id": file_id,
                 "filename": original_filename,
                 "pages": pages_output,
             }
-        finally:
-            doc.close()
+
+        except Exception:
+            await asyncio.to_thread(
+                self._doc_repo.update,
+                document.id,
+                status=Status.FAILED.value,
+            )
+            raise
+
+    # ------------------------------------------------------------------
+    # Internal helpers
+    # ------------------------------------------------------------------
+
+    async def _process_pages(
+        self,
+        doc: fitz.Document,
+        file_id: str,
+        bucket: Optional[str],
+        s3_prefix: str,
+        document: Document,
+    ) -> list[dict]:
+        page_image_paths: list[Path] = []
+        for page_index in range(doc.page_count):
+            page = doc[page_index]
+            image_path = self._render_page_to_image(file_id, page_index, page)
+            page_image_paths.append(image_path)
+
+        crop_dir = self.output_dir / file_id / "crops"
+        crop_dir.mkdir(parents=True, exist_ok=True)
+
+        pages_output: list[dict] = []
+        previous_page_content: Optional[str] = None
+        total = len(page_image_paths)
+
+        for page_index, image_path in enumerate(page_image_paths):
+            page_data = await self._process_single_page(
+                image_path=image_path,
+                page_index=page_index,
+                crop_dir=crop_dir,
+                file_id=file_id,
+                bucket=bucket,
+                s3_prefix=s3_prefix,
+                previous_page_content=previous_page_content,
+                document=document,
+            )
+            pages_output.append(
+                {
+                    "page_number": page_data["page_number"],
+                    "content": page_data["content"],
+                    "questions": [self._question_to_dict(q) for q in page_data["questions"]],
+                }
+            )
+            previous_page_content = page_data["content"]
+
+            progress = round((page_index + 1) / total * 100.0, 1)
+            await asyncio.to_thread(
+                self._doc_repo.update, document.id, progress=progress
+            )
+
+        return pages_output
+
+    async def _process_single_page(
+        self,
+        image_path: Path,
+        page_index: int,
+        crop_dir: Path,
+        file_id: str,
+        bucket: Optional[str],
+        s3_prefix: str,
+        previous_page_content: Optional[str],
+        document: Document,
+    ) -> dict:
+        # --- Content extraction (OCR + crop upload) ---
+        extracted = await self.extraction_pipeline.run(
+            {
+                "image_path": image_path,
+                "page_index": page_index,
+                "crop_dir": crop_dir,
+                "file_id": file_id,
+                "s3_prefix": s3_prefix,
+                "bucket": bucket,
+                "on_image_saved": self._register_image_file,
+            }
+        )
+        self._assert_keys(extracted, ["page_number", "markdown_content"], "extraction")
+
+        # --- Content validation ---
+        validated = await self.validation_pipeline.run(
+            {
+                "image_path": image_path,
+                "page_number": extracted["page_number"],
+                "markdown_content": extracted["markdown_content"],
+            }
+        )
+        self._assert_keys(validated, ["page_number", "content"], "validation")
+
+        # --- Page head overlap ---
+        overlap_result = await self.overlap_pipeline.run(
+            {
+                "page_number": validated["page_number"],
+                "markdown_content": validated["content"],
+                "previous_page_content": previous_page_content,
+            }
+        )
+        self._assert_keys(
+            overlap_result, ["page_number", "markdown_content"], "overlap"
+        )
+
+        # --- Question extraction ---
+        questions_result = await self.question_pipeline.run(
+            {
+                "page_number": overlap_result["page_number"],
+                "markdown_content": overlap_result["markdown_content"],
+                "overlap_content": overlap_result.get("overlap_content"),
+            }
+        )
+        self._assert_keys(questions_result, ["page_number", "questions"], "question_extraction")
+
+        page_content = validated["content"]
+        raw_questions: list[dict] = questions_result["questions"]
+
+        # --- Persist Page ---
+        page_orm = await asyncio.to_thread(
+            self._page_repo.create,
+            document=document,
+            page_number=validated["page_number"],
+            content=page_content,
+        )
+
+        # --- Ensure subject/topic taxonomy exists, then persist Questions ---
+        question_orms = await self._save_questions(raw_questions, page_orm)
+
+        # --- Compute embeddings ---
+        if question_orms and self.llm_client:
+            try:
+                await self.embedding_pipeline.run({"questions": question_orms})
+            except Exception as exc:
+                logger.warning(
+                    "Embedding failed for page %d: %s", page_index + 1, exc
+                )
+
+        logger.info(
+            "Page %d: saved %d questions", page_index + 1, len(question_orms)
+        )
+        return {
+            "page_number": validated["page_number"],
+            "content": page_content,
+            "questions": question_orms,
+        }
+
+    # ------------------------------------------------------------------
+    # Image file metadata registration
+    # ------------------------------------------------------------------
+
+    def _register_image_file(
+        self, object_key: str, name: str, size: int, mime_type: str
+    ) -> str:
+        """Save a crop image to file_metadata and return its UUID string."""
+        fm = self._file_meta_repo.create(
+            name=name,
+            path=object_key,
+            size=size,
+            mime_type=mime_type,
+            object_key=object_key,
+        )
+        return str(fm.id)
+
+    # ------------------------------------------------------------------
+    # Taxonomy helpers
+    # ------------------------------------------------------------------
+
+    def _ensure_subject(self, subject_code: Optional[str]) -> None:
+        if not subject_code:
+            return
+        self._subject_repo.get_or_create(
+            code=subject_code.lower(),
+            name=subject_code.capitalize(),
+        )
+
+    def _ensure_topic(self, topic_code: Optional[str]) -> None:
+        if not topic_code:
+            return
+        self._topic_repo.get_or_create(
+            code=topic_code.lower(),
+            name=topic_code.replace("_", " ").title(),
+        )
+
+    # ------------------------------------------------------------------
+    # Question persistence
+    # ------------------------------------------------------------------
+
+    async def _save_questions(
+        self, raw_questions: list[dict], page_orm: Page
+    ) -> list[Question]:
+        if not raw_questions:
+            return []
+
+        # Collect distinct subjects/topics and upsert them first
+        subjects = {q.get("subject") for q in raw_questions if q.get("subject")}
+        topics = {q.get("topic") for q in raw_questions if q.get("topic")}
+
+        def _upsert_taxonomy():
+            for s in subjects:
+                self._ensure_subject(s)
+            for t in topics:
+                self._ensure_topic(t)
+
+        await asyncio.to_thread(_upsert_taxonomy)
+
+        def _create_all():
+            saved = []
+            for q in raw_questions:
+                image_list = self._resolve_image_list(q.get("image_list") or [])
+                orm = self._question_repo.create(
+                    page=page_orm,
+                    question_text=q.get("question_text", ""),
+                    question_type=q.get("question_type", "short_answer"),
+                    difficulty=q.get("difficulty"),
+                    subject=q.get("subject"),
+                    topic=q.get("topic"),
+                    answers=q.get("answers"),
+                    correct_answer=q.get("correct_answer"),
+                    sub_questions=q.get("sub_questions") or [],
+                    image_list=image_list,
+                    status=0,
+                )
+                saved.append(orm)
+            return saved
+
+        return await asyncio.to_thread(_create_all)
+
+    def _resolve_image_list(self, image_list: list) -> list[str]:
+        """Convert any presigned-URL entries to file_metadata IDs.
+
+        The extraction pipeline now emits file IDs directly, but if any
+        legacy presigned URLs slip through (e.g. from LLM output), look them
+        up in file_metadata by object_key fragment.
+        """
+        resolved = []
+        for entry in image_list:
+            if not entry:
+                continue
+            # Already a plain UUID string — keep as-is
+            if _is_uuid(entry):
+                resolved.append(entry)
+                continue
+            # Presigned URL: extract object key and look up file_metadata
+            key = _extract_s3_key(entry)
+            if key:
+                fm = self._file_meta_repo.get_by_object_key(key)
+                if fm:
+                    resolved.append(str(fm.id))
+                    continue
+            # Fallback: skip unknown references
+            logger.warning("Could not resolve image reference to file_metadata: %s", entry)
+        return resolved
+
+    # ------------------------------------------------------------------
+    # Serialization helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _question_to_dict(q: Question) -> dict:
+        return {
+            "question_text": q.question_text,
+            "question_type": q.question_type,
+            "difficulty": q.difficulty,
+            "subject": q.subject,
+            "topic": q.topic,
+            "answers": q.answers,
+            "correct_answer": q.correct_answer,
+            "sub_questions": q.sub_questions,
+            "image_list": q.image_list,
+        }
+
+    # ------------------------------------------------------------------
+    # Page rendering
+    # ------------------------------------------------------------------
 
     def _render_page_to_image(
         self, file_id: str, page_index: int, page: fitz.Page
     ) -> Path:
-        """Render a PDF page to PIL image and save locally."""
         matrix = fitz.Matrix(2.0, 2.0)
         pix = page.get_pixmap(matrix=matrix, alpha=False)
         pil_image = Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
@@ -224,3 +434,48 @@ class DocumentProcessingService:
         image_path = image_dir / f"page_{page_index + 1}.png"
         pil_image.save(image_path, format="PNG")
         return image_path
+
+    # ------------------------------------------------------------------
+    # Validation
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _assert_keys(result: object, keys: list[str], stage: str) -> None:
+        if not isinstance(result, dict):
+            raise ValueError(
+                f"{stage} pipeline returned invalid type: {type(result).__name__}"
+            )
+        missing = [k for k in keys if k not in result]
+        if missing:
+            raise KeyError(
+                f"{stage} pipeline missing required keys {missing}. Got: {list(result.keys())}"
+            )
+
+
+# ------------------------------------------------------------------
+# Module-level utilities
+# ------------------------------------------------------------------
+
+_UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+    re.IGNORECASE,
+)
+
+
+def _is_uuid(value: str) -> bool:
+    return bool(_UUID_RE.match(value.strip()))
+
+
+def _extract_s3_key(url: str) -> Optional[str]:
+    """Extract the object key path from a presigned S3 URL or plain key string."""
+    # Presigned URLs contain '?' for query params; the key is the URL path portion
+    try:
+        from urllib.parse import urlparse, unquote
+
+        parsed = urlparse(url)
+        if parsed.scheme in ("http", "https"):
+            # Strip leading '/' and decode percent-encoding
+            return unquote(parsed.path.lstrip("/"))
+    except Exception:
+        pass
+    return None

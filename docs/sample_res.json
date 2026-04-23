@@ -2,27 +2,86 @@
   "success": true,
   "message": "Document extraction completed",
   "data": {
-    "file_id": "19fa0651-d854-41aa-829a-f3aa474ae6d5",
+    "file_id": "ebf7f4c5-6f02-4606-92f0-7f513134aee2",
     "filename": "de-toan.pdf",
     "pages": [
       {
         "page_number": 1,
-        "content": "Thời gian làm bài 90 phút, không kể thời gian phát đề\nPHẦN I. Thí sinh trả lời từ câu 1 đến câu 12. Mỗi câu hỏi thí sinh chỉ chọn một phương án.\nCâu 1. Nguyên hàm của hàm số $f(x)=e^{x}$ là:\nA. $\\frac{e^{x+1}}{x+1}+C.$ B. $e^{x}+C.$ C. $\\frac{e^{x}}{x}+C.$ D. $x.e^{x-1}+C.$\nCâu 2. Cho hàm số $y=f(x)$ liên tục, nhận giá trị dương trên đoạn $[a; b]$. Xét hình phẳng $(H)$ giới hạn bởi đồ thị hàm số $y=f(x)$, trục hoành và hai đường thẳng $x=a, x=b$. Khi khối tròn xoay được tạo thành khi quay hình phẳng $(H)$ quanh trục $Ox$ có thể tích là:\nA. $V=\\pi\\int\\limits_{a}^{b}\\left|f(x)\\right|d x.$ B. $V=\\pi^{2}\\int\\limits_{a}^{b}f(x)dx.$ C. $V=\\pi^{2}\\int\\limits_{a}^{b}\\left[f\\left(x\\right)\\right]^{2}d x.$ D. $V=\\pi\\int\\limits_{a}^{b}\\left[f(x)\\right]^{2}d x.$\nCâu 3. Hai mẫu số liệu ghép nhóm $M_{1},M_{2}$ có bảng tần số ghép nhóm như sau:\n<img src=\"http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p1_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143447Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=a83c35d1ef003e2f53afdb1977ffc63523dc68c2b4450d5f3a89f71a36378787\" alt=\"Image\" />\nGọi $s_{1},s_{2}$ lần lượt là độ lệch chuẩn của mẫu số liệu ghép nhóm $M_{1},M_{2}$. Phát biểu nào sau đây là đúng?\nA. $s_{1}=s_{2}$ B. $s_{1}=2s_{2}.$ C. $2s_{1}=s_{2}.$ D. $4s_{1}=s_{2}$\nCâu 4. Trong không gian với hệ trục tọa độ $Oxyz$, phương trình của đường thẳng đi qua điểm $M(1;-3;5)$ và có một vectơ chỉ phương $\\vec{u}(2;-1;1)$ là:\nA. $\\frac{x-1}{2}=\\frac{y-3}{-1}=\\frac{z-5}{1}.$\nB. $\\frac{x-1}{2}=\\frac{y-3}{-1}=\\frac{z+5}{1}.$\nC. $\\frac{x-1}{2}=\\frac{y+3}{-1}=\\frac{z-5}{1}.$\nD. $\\frac{x+1}{2}=\\frac{y+3}{-1}=\\frac{z-5}{1}.$\nCâu 5. Cho hàm số $y=\\frac{ax+b}{cx+d}\\quad(c\\neq0,ad-bc\\neq0)$ có đồ thị như hình vẽ bên. Tìm tiệm cận ngang của đồ thị hàm số là:\nA. $x=-1.$\nB. $y=\\frac{1}{2}.$\nC. $y=-1$\nD. $x=\\frac{1}{2}.$\n<img src=\"http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p1_3.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143447Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=d48d6e1e74f24eecad460389aeb79feae5869093ea76f981bc36e2e909a0670f\" alt=\"Image\" />\nTrang 1/4",
-        "questions": []
+        "content": "PHẦN I. Thí sinh trả lời từ câu 1 đến câu 12. Mỗi câu hỏi thí sinh chỉ chọn một phương án.\nCâu 1. Nguyên hàm của hàm số $f(x)=e^{x}$ là:\nA. $\\frac{e^{x+1}}{x+1}+C.$ B. $e^{x}+C.$ C. $\\frac{e^{x}}{x}+C.$ D. $x.e^{x-1}+C.$\nCâu 2. Cho hàm số $y=f(x)$ liên tục, nhận giá trị dương trên đoạn $[a; b]$. Xét hình phẳng $(H)$ giới hạn bởi đồ thị hàm số $y=f(x)$, trục hoành và hai đường thẳng $x=a, x=b$. Khối tròn xoay được tạo thành khi quay hình phẳng $(H)$ quanh trục $Ox$ có thể tích là:\nA. $V=\\pi\\int\\limits_{a}^{b}\\left|f(x)\\right|d x.$ B. $V=\\pi^{2}\\int\\limits_{a}^{b}f(x)dx.$ C. $V=\\pi^{2}\\int\\limits_{a}^{b}\\left[f\\left(x\\right)\\right]^{2}d x.$ D. $V=\\pi\\int\\limits_{a}^{b}\\left[f(x)\\right]^{2}d x.$\nCâu 3. Hai mẫu số liệu ghép nhóm $M_{1},M_{2}$ có bảng tần số ghép nhóm như sau:\n$M_{1}$\n| Nhóm | [8;10) | [10;12) | [12;14) | [14;16) | [16;18) |\n|---|---|---|---|---|---|\n| Tần số | 3 | 4 | 8 | 6 | 4 |\n\n$M_{2}$\n| Nhóm | [8;10) | [10;12) | [12;14) | [14;16) | [16;18) |\n|---|---|---|---|---|---|\n| Tần số | 6 | 8 | 16 | 12 | 8 |\nGọi $s_{1},s_{2}$ lần lượt là độ lệch chuẩn của mẫu số liệu ghép nhóm $M_{1},M_{2}$. Phát biểu nào sau đây là đúng?\nA. $s_{1}=s_{2}$ B. $s_{1}=2s_{2}.$ C. $2s_{1}=s_{2}.$ D. $4s_{1}=s_{2}$\nCâu 4. Trong không gian với hệ trục tọa độ $Oxyz$, phương trình của đường thẳng đi qua điểm $M(1;-3;5)$ và có một vectơ chỉ phương $\\vec{u}(2;-1;1)$ là:\nA. $\\frac{x-1}{2}=\\frac{y-3}{-1}=\\frac{z-5}{1}.$ B. $\\frac{x-1}{2}=\\frac{y-3}{-1}=\\frac{z+5}{1}.$ C. $\\frac{x-1}{2}=\\frac{y+3}{-1}=\\frac{z-5}{1}.$ D. $\\frac{x+1}{2}=\\frac{y+3}{-1}=\\frac{z-5}{1}.$\nCâu 5. Cho hàm số $y=\\frac{ax+b}{cx+d}\\quad(c\\neq0,ad-bc\\neq0)$ có đồ thị như hình vẽ bên. Tìm tiệm cận ngang của đồ thị hàm số là:\nA. $x=-1.$ B. $y=\\frac{1}{2}.$ C. $y=-1.$ D. $x=\\frac{1}{2}.$\n<img src=\"http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p1_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133443Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=61f24db17ab81a6edfe141d03dcb23985ee6200e3eefd3fe7e1ca571088e2110\" alt=\"Image\" />\nTrang 1/4",
+        "questions": [
+          {
+            "question_text": "Nguyên hàm của hàm số $f(x)=e^{x}$ là:",
+            "question_type": "multiple_choice",
+            "difficulty": "easy",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"\\\\frac{e^{x+1}}{x+1}+C.\", \"e^{x}+C.\", \"\\\\frac{e^{x}}{x}+C.\", \"x.e^{x-1}+C.\"]",
+            "correct_answer": "e^{x}+C.",
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Cho hàm số $y=f(x)$ liên tục, nhận giá trị dương trên đoạn $[a; b]$. Xét hình phẳng $(H)$ giới hạn bởi đồ thị hàm số $y=f(x)$, trục hoành và hai đường thẳng $x=a, x=b$. Khối tròn xoay được tạo thành khi quay hình phẳng $(H)$ quanh trục $Ox$ có thể tích là:",
+            "question_type": "multiple_choice",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"V=\\\\pi\\\\int\\\\limits_{a}^{b}\\\\left|f(x)\\\\right|dx.\", \"V=\\\\pi^{2}\\\\int\\\\limits_{a}^{b}f(x)dx.\", \"V=\\\\pi^{2}\\\\int\\\\limits_{a}^{b}\\\\left[f\\\\left(x\\right)\\right]^{2}d x.\", \"V=\\\\pi\\\\int\\\\limits_{a}^{b}\\\\left[f(x)\\right]^{2}d x.\"]",
+            "correct_answer": "V=\\pi\\int\\limits_{a}^{b}\\left[f(x)\right]^{2}d x.",
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Hai mẫu số liệu ghép nhóm $M_{1},M_{2}$ có bảng tần số ghép nhóm như sau:\n$M_{1}$\n| Nhóm | [8;10) | [10;12) | [12;14) | [14;16) | [16;18) |\n|---|---|---|---|---|---|\n| Tần số | 3 | 4 | 8 | 6 | 4 |\n\n$M_{2}$\n| Nhóm | [8;10) | [10;12) | [12;14) | [14;16) | [16;18) |\n|---|---|---|---|---|---|\n| Tần số | 6 | 8 | 16 | 12 | 8 |\nGọi $s_{1},s_{2}$ lần lượt là độ lệch chuẩn của mẫu số liệu ghép nhóm $M_{1},M_{2}$. Phát biểu nào sau đây là đúng?",
+            "question_type": "multiple_choice",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "statistics",
+            "answers": "[\"s_{1}=s_{2}\", \"s_{1}=2s_{2}.\", \"2s_{1}=s_{2}.\", \"4s_{1}=s_{2}\"]",
+            "correct_answer": "2s_{1}=s_{2}.",
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Trong không gian với hệ trục tọa độ $Oxyz$, phương trình của đường thẳng đi qua điểm $M(1;-3;5)$ và có một vectơ chỉ phương $\\vec{u}(2;-1;1)$ là:",
+            "question_type": "multiple_choice",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": "[\"\\\\frac{x-1}{2}=\\\\frac{y-3}{-1}=\\\\frac{z-5}{1}.\", \"\\\\frac{x-1}{2}=\\\\frac{y-3}{-1}=\\\\frac{z+5}{1}.\", \"\\\\frac{x-1}{2}=\\\\frac{y+3}{-1}=\\\\frac{z-5}{1}.\", \"\\\\frac{x+1}{2}=\\\\frac{y+3}{-1}=\\\\frac{z-5}{1}.\"]",
+            "correct_answer": "\\frac{x-1}{2}=\\frac{y+3}{-1}=\\frac{z-5}{1}.",
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Cho hàm số $y=\\frac{ax+b}{cx+d}\\quad(c\\neq0,ad-bc\\neq0)$ có đồ thị như hình vẽ bên. Tìm tiệm cận ngang của đồ thị hàm số là:",
+            "question_type": "multiple_choice",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "functions",
+            "answers": "[\"x=-1.\", \"y=\\\\frac{1}{2}.\", \"y=-1.\", \"x=\\\\frac{1}{2}.\"]",
+            "correct_answer": "y=\\frac{1}{2}.",
+            "image_list": [
+              "http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p1_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133443Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=61f24db17ab81a6edfe141d03dcb23985ee6200e3eefd3fe7e1ca571088e2110"
+            ],
+            "sub_questions": []
+          }
+        ]
       },
       {
         "page_number": 2,
-        "content": "Câu 6. Tập nghiệm của bất phương trình $\\log_{2}(x-1)<3$ là:\nA. (1;9). B. $(-\\infty;9)$ C. $(9;+\\infty)$ D. (1;7).\nCâu 7. Trong không gian với hệ trục tọa độ Oxyz, cho mặt phẳng $(P)$ có phương trình $x-3y-z+8=0$. Vectơ nào sau đây là một vectơ pháp tuyến của mặt phẳng $(P)$?\nA. $\\overrightarrow{n}_{1}(1;-3;1)$ B. $\\overrightarrow{n}_{2}(1;-3;-1)$ C. $\\overrightarrow{n}_{3}(1;-3;8)$ D. $\\overrightarrow{n}_{4}(1;3;8)$\nCâu 8. Cho hình chóp S.ABCD có đáy ABCD là hình chữ nhật và $SA\\perp(ABCD)$. Mặt phẳng nào sau đây vuông góc với mặt phẳng $(ABCD)$?\nA. (SAB). B. (SBC). C. (SCD). D. (SBD).\nCâu 9. Nghiệm của phương trình $2^{x}=6$ là:\nA. $x=\\log_{6}2$. B. $x=3$. C. $x=4$. D. $x=\\log_{2}6$.\nCâu 10. Cấp số cộng $(u_n)$ có $u_1=1$ và $u_2=3$. Số hạng $u_5$ của cấp số cộng là:\nA. 5. B. 7. C. 9. D. 11.\nCâu 11. Cho hình hộp ABCD.A'B'C'D' (minh họa như hình bên). Phát biểu nào sau đây là đúng?\nA. $\\overrightarrow{AB}+\\overrightarrow{BB'}+\\overrightarrow{B'A}=\\overrightarrow{AC}$ B. $\\overrightarrow{AB}+\\overrightarrow{BC}+\\overrightarrow{C'D}=\\overrightarrow{AC'}$ C. $\\overrightarrow{AB}+\\overrightarrow{AC}+\\overrightarrow{AA}=\\overrightarrow{AC}$ D. $\\overrightarrow{AB}+\\overrightarrow{AA'}+\\overrightarrow{AD}=\\overrightarrow{AC'}$\nCâu 12. Cho hàm số có đồ thị như hình vẽ bên. Hàm số đã cho đồng biến trên khoảng nào sau đây?\nA. $(-\\infty;-1)$ B. $(-\\infty;1)$ C. $(-1;1)$ D. $(1;+\\infty)$\n<img src=\"http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143515Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=23eb9b0f9754d50ae7a64f6b398ba7600f63366b13bad53e0d9778234796eb81\" alt=\"Image\" />\nPHẦN II. Thí sinh trả lời từ câu 1 đến câu 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\nCâu 1. Cho hàm số $f(x)=2\\cos x+x.$\na) $f(0)=2;f\\left(\\frac{\\pi}{2}\\right)=\\frac{\\pi}{2}.$\nb) Đạo hàm của hàm số đã cho là $f^{\\prime}(x)=2\\sin x+1$.\nc) Nghiệm của phương trình $f^{\\prime}(x)=0$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\frac{\\pi}{6}$.\nd) Giá trị lớn nhất của $f(x)$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\sqrt{3}+\\frac{\\pi}{6}$.\nCâu 2. Một người điều khiển ô tô đang dẫn luồn muốn nhập làn vào đường cao tốc. Khi ô tô cách điểm nhập làn 200 m, tốc độ của ô tô là 36 km/h. Hai giây sau đó, ô tô bắt đầu tăng tốc với tốc độ $v(t)=at+b$ $(a,b\\in\\mathbb{R},a>0)$, trong đó t là thời gian tính bằng giây kể từ khi bắt đầu tăng tốc. Biết rằng ô tô nhập làn cao tốc sau 12 giây và duy trì sự tăng tốc trong 24 giây kể từ khi bắt đầu tăng tốc.\nTrang 2/4",
+        "content": "Câu 6. Tập nghiệm của bất phương trình $\\log_{2}(x-1)<3$ là:\nA. (1;9). B. $(-\\infty;9)$. C. $(9;+\\infty)$. D. (1;7).\n\nCâu 7. Trong không gian với hệ trục tọa độ Oxyz, cho mặt phẳng $(P)$ có phương trình $x-3y-z+8=0$. Vectơ nào sau đây là một vectơ pháp tuyến của mặt phẳng $(P)$?\nA. $\\overrightarrow{n}_{1}(1;-3;1)$. B. $\\overrightarrow{n}_{2}(1;-3;-1)$. C. $\\overrightarrow{n}_{3}(1;-3;8)$. D. $\\overrightarrow{n}_{4}(1;3;8)$.\n\nCâu 8. Cho hình chóp S.ABCD có đáy ABCD là hình chữ nhật và $SA\\perp(ABCD)$. Mặt phẳng nào sau đây vuông góc với mặt phẳng $(ABCD)$?\nA. $(SAB)$. B. $(SBC)$. C. $(SCD)$. D. $(SBD)$.\n\nCâu 9. Nghiệm của phương trình $2^x = 6$ là:\nA. $x=\\log_{6}2$. B. $x=3$. C. $x=4$. D. $x=\\log_{2}6$.\n\nCâu 10. Cấp số cộng $(u_n)$ có $u_1=1$ và $u_2=3$. Số hạng $u_5$ của cấp số cộng là:\nA. 5. B. 7. C. 9. D. 11.\n\nCâu 11. Cho hình hộp ABCD.A'B'C'D' (minh họa như hình bên). Phát biểu nào sau đây là đúng?\nA. $\\overrightarrow{AB}+\\overrightarrow{BB}+\\overrightarrow{B'A}=\\overrightarrow{AC}$.\nB. $\\overrightarrow{AB}+\\overrightarrow{BC}+\\overrightarrow{C'D}=\\overrightarrow{AC'}$.\nC. $\\overrightarrow{AB}+\\overrightarrow{AC}+\\overrightarrow{AA}=\\overrightarrow{AC}$.\nD. $\\overrightarrow{AB}+\\overrightarrow{AA'}+\\overrightarrow{AD}=\\overrightarrow{AC'}$.\n\nCâu 12. Cho hàm số có đồ thị như hình vẽ bên. Hàm số đã cho đồng biến trên khoảng nào sau đây?\nA. $(-\\infty;-1)$. B. $(-\\infty;1)$.\nC. $(-1;1)$. D. $(1;+\\infty)$.\n\n<img src=\"http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133510Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=eff650ebed4187af084e71fbde2b2d768aa3799f797e866adb6a547edd18b3a1\" alt=\"Image\" />\n\nPHẦN II. Thí sinh trả lời từ câu 1 đến câu 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\n\nCâu 1. Cho hàm số $f(x)=2\\cos x+x$.\na) $f(0)=2; f\\left(\\frac{\\pi}{2}\\right)=\\frac{\\pi}{2}$.\nb) Đạo hàm của hàm số đã cho là $f^{\\prime}(x)=2\\sin x+1$.\nc) Nghiệm của phương trình $f^{\\prime}(x)=0$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\frac{\\pi}{6}$.\nd) Giá trị lớn nhất của $f(x)$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\sqrt{3}+\\frac{\\pi}{6}$.\n\nCâu 2. Một người điều khiển ô tô đang dẫn luồn muốn nhập làn vào đường cao tốc. Khi ô tô cách điểm nhập làn 200 m, tốc độ đó của ô tô là 36 km/h. Hai giây sau đó, ô tô bắt đầu tăng tốc với tốc độ $v(t)=at+b$ $(a,b\\in\\mathbb{R},a>0)$, trong đó $t$ là thời gian tính bằng giây kể từ khi bắt đầu tăng tốc. Biết rằng ô tô nhập làn cao tốc sau 12 giây và duy trì sự tăng tốc trong 24 giây kể từ khi bắt đầu tăng tốc.",
         "questions": [
           {
             "question_text": "Tập nghiệm của bất phương trình $\\log_{2}(x-1)<3$ là:",
             "question_type": "multiple_choice",
-            "difficulty": "easy",
+            "difficulty": "medium",
             "subject": "math",
             "topic": "logarithms",
-            "answers": "[\"A. (1;9).\", \"B. $(-\\\\infty;9)$\", \"C. $(9;+\\\\infty)$\", \"D. (1;7).\"]",
-            "correct_answer": "A. (1;9).",
-            "image_list": []
+            "answers": "[\"(1;9)\", \"$(-\\\\infty;9)$\", \"(9;+\\\\infty)\", \"(1;7)\"]",
+            "correct_answer": "(1;9)",
+            "image_list": [],
+            "sub_questions": []
           },
           {
             "question_text": "Trong không gian với hệ trục tọa độ Oxyz, cho mặt phẳng $(P)$ có phương trình $x-3y-z+8=0$. Vectơ nào sau đây là một vectơ pháp tuyến của mặt phẳng $(P)$?",
@@ -30,9 +89,10 @@
             "difficulty": "easy",
             "subject": "math",
             "topic": "analytic geometry",
-            "answers": "[\"A. $\\\\overrightarrow{n}_{1}(1;-3;1)$\", \"B. $\\\\overrightarrow{n}_{2}(1;-3;-1)$\", \"C. $\\\\overrightarrow{n}_{3}(1;-3;8)$\", \"D. $\\\\overrightarrow{n}_{4}(1;3;8)$\"]",
-            "correct_answer": "B. $\\overrightarrow{n}_{2}(1;-3;-1)$",
-            "image_list": []
+            "answers": "[\"$\\\\overrightarrow{n}_{1}(1;-3;1)$\", \"$\\\\overrightarrow{n}_{2}(1;-3;-1)$\", \"$\\\\overrightarrow{n}_{3}(1;-3;8)$\", \"$\\\\overrightarrow{n}_{4}(1;3;8)$\"]",
+            "correct_answer": "$\\overrightarrow{n}_{2}(1;-3;-1)$",
+            "image_list": [],
+            "sub_questions": []
           },
           {
             "question_text": "Cho hình chóp S.ABCD có đáy ABCD là hình chữ nhật và $SA\\perp(ABCD)$. Mặt phẳng nào sau đây vuông góc với mặt phẳng $(ABCD)$?",
@@ -40,29 +100,32 @@
             "difficulty": "medium",
             "subject": "math",
             "topic": "solid geometry",
-            "answers": "[\"A. (SAB).\", \"B. (SBC).\", \"C. (SCD).\", \"D. (SBD).\"]",
-            "correct_answer": "A. (SAB).",
-            "image_list": []
+            "answers": "[\"(SAB)\", \"(SBC)\", \"(SCD)\", \"(SBD)\"]",
+            "correct_answer": "(SAB)",
+            "image_list": [],
+            "sub_questions": []
           },
           {
-            "question_text": "Nghiệm của phương trình $2^{x}=6$ là:",
+            "question_text": "Nghiệm của phương trình $2^x = 6$ là:",
             "question_type": "multiple_choice",
             "difficulty": "easy",
             "subject": "math",
             "topic": "exponentials",
-            "answers": "[\"A. $x=\\\\log_{6}2$.\", \"B. $x=3$.\", \"C. $x=4$.\", \"D. $x=\\\\log_{2}6$.\"]",
-            "correct_answer": "D. $x=\\log_{2}6$.",
-            "image_list": []
+            "answers": "[\"$x=\\\\log_{6}2$\", \"$x=3$\", \"$x=4$\", \"$x=\\\\log_{2}6$\"]",
+            "correct_answer": "$x=\\log_{2}6$",
+            "image_list": [],
+            "sub_questions": []
           },
           {
             "question_text": "Cấp số cộng $(u_n)$ có $u_1=1$ và $u_2=3$. Số hạng $u_5$ của cấp số cộng là:",
             "question_type": "multiple_choice",
             "difficulty": "easy",
             "subject": "math",
-            "topic": "sequences",
-            "answers": "[\"A. 5.\", \"B. 7.\", \"C. 9.\", \"D. 11.\"]",
-            "correct_answer": "B. 7.",
-            "image_list": []
+            "topic": "sequences and series",
+            "answers": "[\"5\", \"7\", \"9\", \"11\"]",
+            "correct_answer": "7",
+            "image_list": [],
+            "sub_questions": []
           },
           {
             "question_text": "Cho hình hộp ABCD.A'B'C'D' (minh họa như hình bên). Phát biểu nào sau đây là đúng?",
@@ -70,11 +133,12 @@
             "difficulty": "medium",
             "subject": "math",
             "topic": "vectors",
-            "answers": "[\"A. $\\\\overrightarrow{AB}+\\\\overrightarrow{BB'}+\\\\overrightarrow{B'A}=\\\\overrightarrow{AC}$\", \"B. $\\\\overrightarrow{AB}+\\\\overrightarrow{BC}+\\\\overrightarrow{C'D}=\\\\overrightarrow{AC'}$\", \"C. $\\\\overrightarrow{AB}+\\\\overrightarrow{AC}+\\\\overrightarrow{AA}=\\\\overrightarrow{AC}$\", \"D. $\\\\overrightarrow{AB}+\\\\overrightarrow{AA'}+\\\\overrightarrow{AD}=\\\\overrightarrow{AC'}$\"]",
-            "correct_answer": "D. $\\overrightarrow{AB}+\\overrightarrow{AA'}+\\overrightarrow{AD}=\\overrightarrow{AC'}$",
+            "answers": "[\"$\\\\overrightarrow{AB}+\\\\overrightarrow{BB}+\\\\overrightarrow{B'A}=\\\\overrightarrow{AC}$\", \"$\\\\overrightarrow{AB}+\\\\overrightarrow{BC}+\\\\overrightarrow{C'D}=\\\\overrightarrow{AC'}$\", \"$\\\\overrightarrow{AB}+\\\\overrightarrow{AC}+\\\\overrightarrow{AA}=\\\\overrightarrow{AC}$\", \"$\\\\overrightarrow{AB}+\\\\overrightarrow{AA'}+\\\\overrightarrow{AD}=\\\\overrightarrow{AC'}$\"]",
+            "correct_answer": "$\\overrightarrow{AB}+\\overrightarrow{AA'}+\\overrightarrow{AD}=\\overrightarrow{AC'}$",
             "image_list": [
-              "http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143515Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=23eb9b0f9754d50ae7a64f6b398ba7600f63366b13bad53e0d9778234796eb81"
-            ]
+              "http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133510Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=eff650ebed4187af084e71fbde2b2d768aa3799f797e866adb6a547edd18b3a1"
+            ],
+            "sub_questions": []
           },
           {
             "question_text": "Cho hàm số có đồ thị như hình vẽ bên. Hàm số đã cho đồng biến trên khoảng nào sau đây?",
@@ -82,422 +146,459 @@
             "difficulty": "medium",
             "subject": "math",
             "topic": "functions",
-            "answers": "[\"A. $(-\\\\infty;-1)$\", \"B. $(-\\\\infty;1)$\", \"C. $(-1;1)$\", \"D. $(1;+\\\\infty)$\"]",
-            "correct_answer": "D. $(1;+\\infty)$",
+            "answers": "[\"$(-\\\\infty;-1)$\", \"$(-\\\\infty;1)$\", \"$(-1;1)$\", \"$(1;+\\\\infty)$\"]",
+            "correct_answer": "$(1;+\\infty)$",
             "image_list": [
-              "http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143515Z&X-Amz-Expires=3600&X-Amz-Signature=23eb9b0f9754d50ae7a64f6b398ba7600f63366b13bad53e0d9778234796eb81"
-            ]
+              "http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p2_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133510Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=eff650ebed4187af084e71fbde2b2d768aa3799f797e866adb6a547edd18b3a1"
+            ],
+            "sub_questions": []
           },
           {
-            "question_text": "Cho hàm số $f(x)=2\\cos x+x.$",
-            "question_type": "short_answer",
+            "question_text": "Cho hàm số $f(x)=2\\cos x+x$.",
+            "question_type": "composite",
             "difficulty": "medium",
             "subject": "math",
             "topic": "calculus",
             "answers": null,
             "correct_answer": null,
-            "image_list": []
+            "image_list": [],
+            "sub_questions": [
+              {
+                "sub_question_text": "$f(0)=2; f\\left(\\frac{\\pi}{2}\\right)=\\frac{\\pi}{2}$",
+                "question_type": "true_false",
+                "answers": "[\"True\", \"False\"]",
+                "correct_answer": "True"
+              },
+              {
+                "sub_question_text": "Đạo hàm của hàm số đã cho là $f^{\\prime}(x)=2\\sin x+1$",
+                "question_type": "true_false",
+                "answers": "[\"True\", \"False\"]",
+                "correct_answer": "False"
+              },
+              {
+                "sub_question_text": "Nghiệm của phương trình $f^{\\prime}(x)=0$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\frac{\\pi}{6}$",
+                "question_type": "true_false",
+                "answers": "[\"True\", \"False\"]",
+                "correct_answer": "False"
+              },
+              {
+                "sub_question_text": "Giá trị lớn nhất của $f(x)$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\sqrt{3}+\\frac{\\pi}{6}$",
+                "question_type": "true_false",
+                "answers": "[\"True\", \"False\"]",
+                "correct_answer": "False"
+              }
+            ]
           },
           {
-            "question_text": "$f(0)=2;f\\left(\\frac{\\pi}{2}\\right)=\\frac{\\pi}{2}.$",
-            "question_type": "true_false",
-            "difficulty": "easy",
-            "subject": "math",
-            "topic": "calculus",
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Đạo hàm của hàm số đã cho là $f^{\\prime}(x)=2\\sin x+1$.",
-            "question_type": "true_false",
-            "difficulty": "easy",
-            "subject": "math",
-            "topic": "calculus",
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Nghiệm của phương trình $f^{\\prime}(x)=0$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\frac{\\pi}{6}$.",
-            "question_type": "true_false",
-            "difficulty": "medium",
-            "subject": "math",
-            "topic": "calculus",
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Giá trị lớn nhất của $f(x)$ trên đoạn $\\left[0;\\frac{\\pi}{2}\\right]$ là $\\sqrt{3}+\\frac{\\pi}{6}$.",
-            "question_type": "true_false",
+            "question_text": "Một người điều khiển ô tô đang dẫn luồn muốn nhập làn vào đường cao tốc. Khi ô tô cách điểm nhập làn 200 m, tốc độ đó của ô tô là 36 km/h. Hai giây sau đó, ô tô bắt đầu tăng tốc với tốc độ $v(t)=at+b$ $(a,b\\in\\mathbb{R},a>0)$, trong đó $t$ là thời gian tính bằng giây kể từ khi bắt đầu tăng tốc. Biết rằng ô tô nhập làn cao tốc sau 12 giây và duy trì sự tăng tốc trong 24 giây kể từ khi bắt đầu tăng tốc.",
+            "question_type": "essay",
             "difficulty": "hard",
             "subject": "math",
             "topic": "calculus",
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
           }
         ]
       },
       {
         "page_number": 3,
-        "content": "a) Quãng đường ô tô đi được từ khi bắt đầu tăng tốc đến khi nhập làn là 180 m.\nb) Giá trị của $b$ là 10.\nc) Quãng đường $S(t)$ (đơn vị mét) mà ô tô đi được trong thời gian $t$ giây $(0\\leq t\\leq24)$ kể từ khi tăng tốc được tính theo công thức $S(t)=\\int\\limits_{0}^{24}v(t)dt$.\nd) Sau 24 giây kể từ khi tăng tốc, tốc độ của ô tô không vượt quá tốc độ tối đa cho phép là 100 km/h.\n\nCâu 3. Trước khi đưa một loại sản phẩm ra thị trường, người ta đã phỏng vấn ngẫu nhiên 200 khách hàng về sản phẩm đó. Kết quả thống kê như sau: có 105 người trả lời “sẽ mua\"; có 95 người trả lời “không mua\". Kinh nghiệm cho thấy tỉ lệ khách hàng thực sự sẽ mua sản phẩm tương ứng với những cách trả lời \"sẽ mua\" và \"không mua\" lần lượt là 70% và 30%.\nGọi A là biến cố \"Người được phỏng vấn thực sự sẽ mua sản phẩm\".\nGọi B là biến cố \"Người được phỏng vấn trả lời sẽ mua sản phẩm\".\na) Xác suất $P(B)=\\frac{21}{40}$ và $P(\\overline{B})=\\frac{19}{40}$.\nb) Xác suất có điều kiện $P(A|B)=0,3$.\nc) Xác suất $P(A)=0,51$.\nd) Trong số những người được phỏng vấn thực sự sẽ mua sản phẩm có 70% người đã trả lời “sẽ mua” khi được phỏng vấn (kết quả tính theo phần trăm được làm tròn đến hàng đơn vị).\n\nCâu 4. Các thiên thạch có đường kính lớn hơn 140 m và có thể được coi là những vật thể có khả năng va chạm gây nguy hiểm cho Trái Đất. Để theo dõi những thiên thạch này, người ta đã thiết lập các trạm quan sát các vật thể bay gần Trái Đất. Giả sử có một hệ thống quan sát có khả năng theo dõi các vật thể ở độ cao không vượt quá 6 600 km so với mực nước biển. Coi Trái Đất là khối cầu có bán kính 6 400 km. Chọn hệ trục tọa độ $Oxyz$ trong không gian có gốc $O$ tại tâm Trái Đất và đơn vị độ dài trên mỗi trục tọa độ là 1 000 km. Một thiên thạch (coi như một hạt) chuyển động với tốc độ không đổi theo một đường thẳng từ điểm $M(6;20;0)$ đến điểm $N(-6;-12;16)$.\na) Đường thẳng $MN$ có phương trình tham số là\n$\\begin{cases}x=6+3t\\\\y=20+8t,(t\\in\\mathbb{R})\\\\z=-4t\\end{cases}$\nb) Vị trí đầu tiên thiên thạch di chuyển vào phạm vi theo dõi của hệ thống quan sát là điểm $A(-3;-4;12)$.\nc) Khoảng cách giữa vị trí đầu tiên và vị trí cuối cùng mà thiên thạch di chuyển trong phạm vi theo dõi của hệ thống quan sát là 18 900 km (kết quả làm tròn đến hàng trăm theo đơn vị ki-lô-mét).\nd) Nếu thời gian di chuyển của thiên thạch trong phạm vi theo dõi của hệ thống quan sát là 3 phút thì thời gian nó di chuyển từ $M$ đến $N$ là 6 phút.\n\nTrang 3/4",
-        "questions": []
+        "content": "a) Quãng đường ô tô đi được từ khi bắt đầu tăng tốc đến khi nhập làn là 180 m.\nb) Giá trị của $b$ là 10.\nc) Quãng đường $S(t)$ (đơn vị mét) mà ô tô đi được trong thời gian $t$ giây $(0 \\leq t \\leq 24)$ kể từ khi tăng tốc được tính theo công thức $S(t)=\\int\\limits_{0}^{24}v(t)dt$.\nd) Sau 24 giây kể từ khi tăng tốc, tốc độ của ô tô không vượt quá tốc độ tối đa cho phép là 100 km/h.\n\nCâu 3. Trước khi đưa một loại sản phẩm ra thị trường, người ta đã phỏng vấn ngẫu nhiên 200 khách hàng về sản phẩm đó. Kết quả thống kê như sau: có 105 người trả lời “sẽ mua”; có 95 người trả lời “không mua”. Kinh nghiệm cho thấy tỉ lệ khách hàng thực sự sẽ mua sản phẩm tương ứng với những cách trả lời “sẽ mua” và “không mua” lần lượt là 70% và 30%.\nGọi $A$ là biến cố \"Người được phỏng vấn thực sự sẽ mua sản phẩm\".\nGọi $B$ là biến cố \"Người được phỏng vấn trả lời sẽ mua sản phẩm\".\na) Xác suất $P(B)=\\frac{21}{40}$ và $P(\\overline{B})=\\frac{19}{40}$.\nb) Xác suất có điều kiện $P(A|B)=0,3$.\nc) Xác suất $P(A)=0,51$.\nd) Trong số những người được phỏng vấn thực sự sẽ mua sản phẩm có 70% người đã trả lời “sẽ mua” khi được phỏng vấn (kết quả tính theo phần trăm được làm tròn đến hàng đơn vị).\n\nCâu 4. Các thiên thạch có đường kính lớn hơn 140 m và có thể được coi là những vật thể có khả năng va chạm gây nguy hiểm cho Trái Đất. Để theo dõi những thiên thạch này, người ta đã thiết lập các trạm quan sát các vật thể bay gần Trái Đất. Giả sử có một hệ thống quan sát có khả năng theo dõi các vật thể ở độ cao không vượt quá 6 600 km so với mực nước biển. Coi Trái Đất là khối cầu có bán kính 6 400 km. Chọn hệ trục tọa độ $Oxyz$ trong không gian có gốc $O$ tại tâm Trái Đất và đơn vị độ dài trên mỗi trục tọa độ là 1 000 km. Một thiên thạch (coi như một hạt) chuyển động với tốc độ không đổi theo một đường thẳng từ điểm $M(6;20;0)$ đến điểm $N(-6;-12;16)$.\na) Đường thẳng $MN$ có phương trình tham số là\n$\\begin{cases}x=6+3t\\\\y=20+8t\\\\z=-4t\\end{cases}$ $(t \\in \\mathbb{R})$.\nb) Vị trí đầu tiên thiên thạch di chuyển vào phạm vi theo dõi của hệ thống quan sát là điểm $A(-3;-4;12)$.\nc) Khoảng cách giữa vị trí đầu tiên và vị trí cuối cùng mà thiên thạch di chuyển trong phạm vi theo dõi của hệ thống quan sát là 18 900 km (kết quả làm tròn đến hàng trăm theo đơn vị ki-lô-mét).\nd) Nếu thời gian di chuyển của thiên thạch trong phạm vi theo dõi của hệ thống quan sát là 3 phút thì thời gian nó di chuyển từ $M$ đến $N$ là 6 phút.\n\nTrang 3/4",
+        "questions": [
+          {
+            "question_text": "Quãng đường ô tô đi được từ khi bắt đầu tăng tốc đến khi nhập làn là 180 m.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Giá trị của $b$ là 10.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Quãng đường $S(t)$ (đơn vị mét) mà ô tô đi được trong thời gian $t$ giây $(0 \\leq t \\leq 24)$ kể từ khi tăng tốc được tính theo công thức $S(t)=\\int\\limits_{0}^{24}v(t)dt$.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Sau 24 giây kể từ khi tăng tốc, tốc độ của ô tô không vượt quá tốc độ tối đa cho phép là 100 km/h.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Xác suất $P(B)=\frac{21}{40}$ và $P(\\overline{B})=\frac{19}{40}$.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "probability",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Xác suất có điều kiện $P(A|B)=0,3$.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "probability",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Xác suất $P(A)=0,51$.",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "probability",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Trong số những người được phỏng vấn thực sự sẽ mua sản phẩm có 70% người đã trả lời “sẽ mua” khi được phỏng vấn (kết quả tính theo phần trăm được làm tròn đến hàng đơn vị).",
+            "question_type": "true_false",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "probability",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Đường thẳng $MN$ có phương trình tham số là",
+            "question_type": "composite",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": [
+              {
+                "sub_question_text": "$x=6+3t$\n$y=20+8t$\n$z=-4t$ $(t \\in \\mathbb{R})$",
+                "question_type": "true_false",
+                "answers": "[\"True\", \"False\"]",
+                "correct_answer": null
+              }
+            ]
+          },
+          {
+            "question_text": "Vị trí đầu tiên thiên thạch di chuyển vào phạm vi theo dõi của hệ thống quan sát là điểm $A(-3;-4;12)$.",
+            "question_type": "true_false",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Khoảng cách giữa vị trí đầu tiên và vị trí cuối cùng mà thiên thạch di chuyển trong phạm vi theo dõi của hệ thống quan sát là 18 900 km (kết quả làm tròn đến hàng trăm theo đơn vị ki-lô-mét).",
+            "question_type": "true_false",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Nếu thời gian di chuyển của thiên thạch trong phạm vi theo dõi của hệ thống quan sát là 3 phút thì thời gian nó di chuyển từ $M$ đến $N$ là 6 phút.",
+            "question_type": "true_false",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": "[\"True\", \"False\"]",
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          }
+        ]
       },
       {
         "page_number": 4,
-        "content": "PHÀN III. Thí sinh trả lời từ câu 1 đến câu 6.\nCâu 1. Cho hình lăng trụ đứng $ABC.A^{\\prime}B^{\\prime}C^{\\prime}$ có $AB=5, BC=6, CA=7$. Khoảng cách giữa hai đường thẳng $AA^{\\prime}$ và $BC$ bằng bao nhiêu? (làm tròn kết quả đến hàng phần mười).\nCâu 2. Một trò chơi điện tử quy định như sau: Có 4 trụ $A,B,C,D$ với số lượng các thử thách trên đường đi giữa các cặp trụ được mô tả trong hình bên. Người chơi xuất phát từ một trụ nào đó, đi qua tất cả các trụ còn lại, mỗi khi đi qua một trụ thì trụ đó sẽ bị phá hủy và không thể quay trở lại trụ đó được nữa, nhưng người chơi vẫn phải trở về trụ ban đầu. Tổng số thử thách của đường đi thỏa mãn điều kiện trên nhận giá trị nhỏ nhất là bao nhiêu?\n<img src=\"http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p4_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143605Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=f19fb7e73772d9806da6da22df911d84ae988e2a7537959e3f87924d8beeb4bd\" alt=\"Image\" />\nCâu 3. Hệ thống định vị toàn cầu GPS là một hệ thống cho phép xác định vị trí của một vật thể trong không gian. Trong cùng một thời điểm, vị trí của một điểm $M$ trong không gian sẽ được xác định bởi bốn vệ tinh cho trước nhờ các bộ thu phát tín hiệu đặt trên các vệ tinh. Giả sử trong không gian với hệ tọa độ $Oxyz$, có bốn vệ tinh lần lượt đặt tại các điểm $A(3;1;0), B(3;6;6), C(4;6;2), D(6;2;14)$; vị trí $M(a;b;c)$ thỏa mãn $MA=3, MB=6, MC=5, MD=13$. Khoảng cách từ điểm $M$ đến điểm $O$ bằng bao nhiêu?\nCâu 4. Kiến trúc sư thiết kế một khu sinh hoạt cộng đồng có dạng hình chữ nhật với chiều rộng và chiều dài lần lượt là $60m$ và $80m$. Trong đó, phần được tô màu đậm là sân chơi, phần còn lại để trồng hoa. Mỗi phần trồng hoa có đường biên cong là một phần của parabol với đỉnh thuộc một trục đối xứng của hình chữ nhật và khoảng cách từ đỉnh đó đến trung điểm cạnh tương ứng của hình chữ nhật bằng $20m$ (xem hình minh họa). Diện tích của phần sân chơi là bao nhiêu mét vuông?\n<img src=\"http://localhost:9003/dherta/document-extraction/19fa0651-d854-41aa-829a-f3aa474ae6d5/crops/crop_p4_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260413%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260413T143605Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=c5f97af69d2a31a64463c171376b7114c92b6a95fceeb095328286435b624e01\" alt=\"Image\" />\nCâu 5. Một doanh nghiệp dự định sản xuất không quá 500 sản phẩm. Nếu doanh nghiệp sản xuất $x$ sản phẩm $(1\\leq x\\leq500)$ thì doanh thu nhận được khi bán hết số sản phẩm đó là $F(x)=x^{3}-1999x^{2}+1001000x+250000$ (đồng), trong khi chi phí sản xuất bình quân cho một sản phẩm là $G(x)=x+1000+\\frac{250000}{x}$ (đồng). Doanh nghiệp cần sản xuất bao nhiêu sản phẩm để lợi nhuận thu được là lớn nhất?\nCâu 6. Có hai chiếc hộp, hộp I có 6 quả bóng màu đỏ và 4 quả bóng màu vàng, hộp II có 7 quả bóng màu đỏ và 3 quả bóng màu vàng, các quả bóng có cùng kích thước và khối lượng. Lấy ngẫu nhiên một quả bóng từ hộp I bỏ vào hộp II. Sau đó, lấy ra ngẫu nhiên một quả bóng từ hộp II. Tính xác suất để quả bóng được lấy ra từ hộp II là quả bóng được chuyển từ hộp I sang, biết rằng quả bóng đó có màu đỏ (làm tròn kết quả đến hàng phần trăm).\nHÉT\n- Thí sinh không được sử dụng tài liệu;\n- Giám thị không giải thích gì thêm.\nTrang 4/4",
-        "questions": []
+        "content": "PHÀN III. Thí sinh trả lời từ câu 1 đến câu 6.\n\nCâu 1. Cho hình lăng trụ đứng $ABC.A^{\\prime}B^{\\prime}C^{\\prime}$ có $AB=5, BC=6, CA=7$. Khoảng cách giữa hai đường thẳng $AA^{\\prime}$ và $BC$ bằng bao nhiêu? (làm tròn kết quả đến hàng phần mười).\n\nCâu 2. Một trò chơi điện tử quy định như sau: Có 4 trụ $A,B,C,D$ với số lượng các thử thách trên đường đi giữa các cặp trụ được mô tả trong hình bên. Người chơi xuất phát từ một trụ nào đó, đi qua tất cả các trụ còn lại, mỗi khi đi qua một trụ thì trụ đó sẽ bị phá hủy và không thể quay trở lại trụ đó được nữa, nhưng người chơi vẫn phải trở về trụ ban đầu. Tổng số thử thách của đường đi thỏa mãn điều kiện trên nhận giá trị nhỏ nhất là bao nhiêu?\n<img src=\"http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p4_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133549Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=b6b2ffec55b689d339e319b1d3c583d18344764ddb8002bf6ffcd15971771dfd\" alt=\"Image\" />\n\nCâu 3. Hệ thống định vị toàn cầu GPS là một hệ thống cho phép xác định vị trí của một vật thể trong không gian. Trong cùng một thời điểm, vị trí của một điểm $M$ trong không gian sẽ được xác định bởi bốn vệ tinh cho trước nhờ các bộ thu phát tín hiệu đặt trên các vệ tinh. Giả sử trong không gian với hệ tọa độ $Oxyz$, có bốn vệ tinh lần lượt đặt tại các điểm $A(3;1;0), B(3;6;6), C(4;6;2), D(6;2;14)$; vị trí $M(a;b;c)$ thỏa mãn $MA=3, MB=6, MC=5, MD=13$. Khoảng cách từ điểm $M$ đến điểm $O$ bằng bao nhiêu?\n\nCâu 4. Kiến trúc sư thiết kế một khu sinh hoạt cộng đồng có dạng hình chữ nhật với chiều rộng và chiều dài lần lượt là $60m$ và $80m$. Trong đó, phần được tô màu đậm là sân chơi, phần còn lại để trồng hoa. Mỗi phần trồng hoa có đường biên cong là một phần của parabol với đỉnh thuộc một trục đối xứng của hình chữ nhật và khoảng cách từ đỉnh đó đến trung điểm cạnh tương ứng của hình chữ nhật bằng $20m$ (xem hình minh họa). Diện tích của phần sân chơi là bao nhiêu mét vuông?\n<img src=\"http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p4_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133549Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=8cbe58b03a488bdad86760ef0086ce828b5351c0bb77636c7f112aea39021860\" alt=\"Image\" />\n\nCâu 5. Một doanh nghiệp dự định sản xuất không quá $500$ sản phẩm. Nếu doanh nghiệp sản xuất $x$ sản phẩm $(1\\leq x\\leq500)$ thì doanh thu nhận được khi bán hết số sản phẩm đó là $F(x)=x^{3}-1999x^{2}+1001000x+250000$ (đồng), trong khi chi phí sản xuất bình quân cho một sản phẩm là $G(x)=x+1000+\\frac{250000}{x}$ (đồng). Doanh nghiệp cần sản xuất bao nhiêu sản phẩm để lợi nhuận thu được là lớn nhất?\n\nCâu 6. Có hai chiếc hộp, hộp I có 6 quả bóng màu đỏ và 4 quả bóng màu vàng, hộp II có 7 quả bóng màu đỏ và 3 quả bóng màu vàng, các quả bóng có cùng kích thước và khối lượng. Lấy ngẫu nhiên một quả bóng từ hộp I bỏ vào hộp II. Sau đó, lấy ra ngẫu nhiên một quả bóng từ hộp II. Tính xác suất để quả bóng được lấy ra từ hộp II là quả bóng được chuyển từ hộp I sang, biết rằng quả bóng đó có màu đỏ (làm tròn kết quả đến hàng phần trăm).\n\nHẾT\n- Thí sinh không được sử dụng tài liệu;\n- Giám thị không giải thích gì thêm.\n\nTrang 4/4",
+        "questions": [
+          {
+            "question_text": "Cho hình lăng trụ đứng $ABC.A^{\\prime}B^{\\prime}C^{\\prime}$ có $AB=5, BC=6, CA=7$. Khoảng cách giữa hai đường thẳng $AA^{\\prime}$ và $BC$ bằng bao nhiêu? (làm tròn kết quả đến hàng phần mười).",
+            "question_type": "short_answer",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "geometry",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Một trò chơi điện tử quy định như sau: Có 4 trụ $A,B,C,D$ với số lượng các thử thách trên đường đi giữa các cặp trụ được mô tả trong hình bên. Người chơi xuất phát từ một trụ nào đó, đi qua tất cả các trụ còn lại, mỗi khi đi qua một trụ thì trụ đó sẽ bị phá hủy và không thể quay trở lại trụ đó được nữa, nhưng người chơi vẫn phải trở về trụ ban đầu. Tổng số thử thách của đường đi thỏa mãn điều kiện trên nhận giá trị nhỏ nhất là bao nhiêu?",
+            "question_type": "short_answer",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "graph_theory",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [
+              "http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p4_1.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133549Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=b6b2ffec55b689d339e319b1d3c583d18344764ddb8002bf6ffcd15971771dfd"
+            ],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Hệ thống định vị toàn cầu GPS là một hệ thống cho phép xác định vị trí của một vật thể trong không gian. Trong cùng một thời điểm, vị trí của một điểm $M$ trong không gian sẽ được xác định bởi bốn vệ tinh cho trước nhờ các bộ thu phát tín hiệu đặt trên các vệ tinh. Giả sử trong không gian với hệ tọa độ $Oxyz$, có bốn vệ tinh lần lượt đặt tại các điểm $A(3;1;0), B(3;6;6), C(4;6;2), D(6;2;14)$; vị trí $M(a;b;c)$ thỏa mãn $MA=3, MB=6, MC=5, MD=13$. Khoảng cách từ điểm $M$ đến điểm $O$ bằng bao nhiêu?",
+            "question_type": "short_answer",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "analytic_geometry",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Kiến trúc sư thiết kế một khu sinh hoạt cộng đồng có dạng hình chữ nhật với chiều rộng và chiều dài lần lượt là $60m$ và $80m$. Trong đó, phần được tô màu đậm là sân chơi, phần còn lại để trồng hoa. Mỗi phần trồng hoa có đường biên cong là một phần của parabol với đỉnh thuộc một trục đối xứng của hình chữ nhật và khoảng cách từ đỉnh đó đến trung điểm cạnh tương ứng của hình chữ nhật bằng $20m$ (xem hình minh họa). Diện tích của phần sân chơi là bao nhiêu mét vuông?",
+            "question_type": "short_answer",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "geometry",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [
+              "http://localhost:9003/dherta/document-extraction/ebf7f4c5-6f02-4606-92f0-7f513134aee2/crops/crop_p4_2.png?X-Amz-Algorithm=AWS4-HMAC-SHA256&X-Amz-Credential=minioadmin%2F20260423%2Fap-southeast-1%2Fs3%2Faws4_request&X-Amz-Date=20260423T133549Z&X-Amz-Expires=3600&X-Amz-SignedHeaders=host&X-Amz-Signature=8cbe58b03a488bdad86760ef0086ce828b5351c0bb77636c7f112aea39021860"
+            ],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Một doanh nghiệp dự định sản xuất không quá $500$ sản phẩm. Nếu doanh nghiệp sản xuất $x$ sản phẩm $(1\\leq x\\leq500)$ thì doanh thu nhận được khi bán hết số sản phẩm đó là $F(x)=x^{3}-1999x^{2}+1001000x+250000$ (đồng), trong khi chi phí sản xuất bình quân cho một sản phẩm là $G(x)=x+1000+\frac{250000}{x}$ (đồng). Doanh nghiệp cần sản xuất bao nhiêu sản phẩm để lợi nhuận thu được là lớn nhất?",
+            "question_type": "short_answer",
+            "difficulty": "hard",
+            "subject": "math",
+            "topic": "calculus",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          },
+          {
+            "question_text": "Có hai chiếc hộp, hộp I có 6 quả bóng màu đỏ và 4 quả bóng màu vàng, hộp II có 7 quả bóng màu đỏ và 3 quả bóng màu vàng, các quả bóng có cùng kích thước và khối lượng. Lấy ngẫu nhiên một quả bóng từ hộp I bỏ vào hộp II. Sau đó, lấy ra ngẫu nhiên một quả bóng từ hộp II. Tính xác suất để quả bóng được lấy ra từ hộp II là quả bóng được chuyển từ hộp I sang, biết rằng quả bóng đó có màu đỏ (làm tròn kết quả đến hàng phần trăm).",
+            "question_type": "short_answer",
+            "difficulty": "medium",
+            "subject": "math",
+            "topic": "probability",
+            "answers": null,
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": []
+          }
+        ]
       },
       {
         "page_number": 5,
-        "content": "ĐÁP ÁN ĐỀ THAM KHẢO\nMôn: TOÁN\n\nPHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn. Thí sinh trả lời từ câu 1 đến câu 12.\n(Mỗi câu trả lời đúng thí sinh được 0,25 điểm)\n\n| Câu   | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 |\n|-------|---|---|---|---|---|---|---|---|---|----|\n| Chọn  | B | D | A | C | B | A | B | A | D | C  |\n| Câu   | 11| 12|   |   |   |   |   |   |   |    |\n| Chọn  | D | C |   |   |   |   |   |   |   |    |\n\nPHẦN II. Câu trắc nghiệm đúng sai. Thí sinh trả lời từ câu 1 đến câu 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\n- Thí sinh chỉ lựa chọn chính xác 01 ý trong 01 câu hỏi được 0,1 điểm;\n- Thí sinh chỉ lựa chọn chính xác 02 ý trong 01 câu hỏi được 0,25 điểm;\n- Thí sinh chỉ lựa chọn chính xác 03 ý trong 01 câu hỏi được 0,5 điểm;\n- Thí sinh lựa chọn chính xác cả 04 ý trong 01 câu hỏi được 1 điểm.\n\n| Câu    | 1     | 2     | 3     | 4     |\n|--------|-------|-------|-------|-------|\n| Đáp án | a) Đúng<br>b) Sai<br>c) Đúng<br>d) Đúng | a) Đúng<br>b) Đúng<br>c) Sai<br>d) Sai | a) Đúng<br>b) Sai<br>c) Đúng<br>d) Sai | a) Đúng<br>b) Sai<br>c) Đúng<br>d) Đúng |\n\nPHẦN III. Câu trắc nghiệm trả lời ngắn. Thí sinh trả lời từ câu 1 đến câu 6\nMỗi câu trả lời đúng thí sinh được 0,5 điểm.\n\n| Câu    | 1   | 2  | 3 | 4    | 5   | 6   |\n|--------|-----|----|---|------|-----|-----|\n| Đáp án | 4,9 | 43 | 3 | 3200 | 333 | 0,08|",
+        "content": "BỘ GIÁO DỤC VÀ ĐÀO TẠO\nĐÁP ÁN ĐỀ THAM KHẢO\nMôn: TOÁN\n\nPHẦN I. Câu trắc nghiệm nhiều phương án lựa chọn. Thí sinh trả lời từ câu 1 đến câu 12.\n(Mỗi câu trả lời đúng thí sinh được 0,25 điểm)\n\n<html><body><table><tr><td>Câu</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td><td>7</td><td>8</td><td>9</td><td>10</td></tr><tr><td>Chọn</td><td>B</td><td>D</td><td>A</td><td>C</td><td>B</td><td>A</td><td>B</td><td>A</td><td>D</td><td>C</td></tr><tr><td>Câu</td><td>11</td><td>12</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr><tr><td>Chọn</td><td>D</td><td>C</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr></table></body></html>\n\nPHẦN II. Câu trắc nghiệm đúng sai. Thí sinh trả lời từ câu 1 đến câu 4. Trong mỗi ý a), b), c), d) ở mỗi câu, thí sinh chọn đúng hoặc sai.\n- Thí sinh chỉ lựa chọn chính xác 01 ý trong 01 câu hỏi được 0,1 điểm;\n- Thí sinh chỉ lựa chọn chính xác 02 ý trong 01 câu hỏi được 0,25 điểm;\n- Thí sinh chỉ lựa chọn chính xác 03 ý trong 01 câu hỏi được 0,5 điểm;\n- Thí sinh lựa chọn chính xác cả 04 ý trong 01 câu hỏi được 1 điểm.\n\n<html><body><table><tr><td>Câu</td><td>1</td><td>2</td><td>3</td><td>4</td></tr><tr><td>Đáp án</td><td>a) Đúng<br>b) Sai<br>c) Đúng<br>d) Đúng</td><td>a) Đúng<br>b) Đúng<br>c) Sai<br>d) Sai</td><td>a) Đúng<br>b) Sai<br>c) Đúng<br>d) Sai</td><td>a) Đúng<br>b) Sai<br>c) Đúng<br>d) Đúng</td></tr></table></body></html>\n\nPHẦN III. Câu trắc nghiệm trả lời ngắn. Thí sinh trả lời từ câu 1 đến câu 6\nMỗi câu trả lời đúng thí sinh được 0,5 điểm.\n\n<html><body><table><tr><td>Câu</td><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td><td>6</td></tr><tr><td>Đáp án</td><td>4,9</td><td>43</td><td>3</td><td>3200</td><td>333</td><td>0,08</td></tr></table></body></html>",
         "questions": [
           {
-            "question_text": "Câu 1",
-            "question_type": "multiple_choice",
+            "question_text": "Phần I. Câu trắc nghiệm nhiều phương án lựa chọn. Thí sinh trả lời từ câu 1 đến câu 12.",
+            "question_type": "composite",
             "difficulty": null,
             "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "B",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 2",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "D",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 3",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "A",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "C",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 5",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "B",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 6",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "A",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 7",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "B",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 8",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "A",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 9",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "D",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 10",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "C",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 11",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "D",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 12",
-            "question_type": "multiple_choice",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"A\", \"B\", \"C\", \"D\"]",
-            "correct_answer": "C",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 1. a)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 1. b)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 1. c)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 1. d)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 2. a)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 2. b)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 2. c)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 2. d)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 3. a)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 3. b)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 3. c)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 3. d)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4. a)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4. b)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "False",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4. c)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4. d)",
-            "question_type": "true_false",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": "[\"True\", \"False\"]",
-            "correct_answer": "True",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 1",
-            "question_type": "short_answer",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
+            "topic": "unknown",
             "answers": null,
-            "correct_answer": "4,9",
-            "image_list": []
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": [
+              {
+                "sub_question_text": "1",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "B"
+              },
+              {
+                "sub_question_text": "2",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "D"
+              },
+              {
+                "sub_question_text": "3",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "A"
+              },
+              {
+                "sub_question_text": "4",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "C"
+              },
+              {
+                "sub_question_text": "5",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "B"
+              },
+              {
+                "sub_question_text": "6",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "A"
+              },
+              {
+                "sub_question_text": "7",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "B"
+              },
+              {
+                "sub_question_text": "8",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "A"
+              },
+              {
+                "sub_question_text": "9",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "D"
+              },
+              {
+                "sub_question_text": "10",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "C"
+              },
+              {
+                "sub_question_text": "11",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "D"
+              },
+              {
+                "sub_question_text": "12",
+                "question_type": "multiple_choice",
+                "answers": null,
+                "correct_answer": "C"
+              }
+            ]
           },
           {
-            "question_text": "Câu 2",
-            "question_type": "short_answer",
+            "question_text": "Phần II. Câu trắc nghiệm đúng sai. Thí sinh trả lời từ câu 1 đến câu 4.",
+            "question_type": "composite",
             "difficulty": null,
             "subject": "math",
-            "topic": null,
+            "topic": "unknown",
             "answers": null,
-            "correct_answer": "43",
-            "image_list": []
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": [
+              {
+                "sub_question_text": "1",
+                "question_type": "true_false",
+                "answers": "[\"a) \\u0110\\u00fang\", \"b) Sai\", \"c) \\u0110\\u00fang\", \"d) \\u0110\\u00fang\"]",
+                "correct_answer": null
+              },
+              {
+                "sub_question_text": "2",
+                "question_type": "true_false",
+                "answers": "[\"a) \\u0110\\u00fang\", \"b) \\u0110\\u00fang\", \"c) Sai\", \"d) Sai\"]",
+                "correct_answer": null
+              },
+              {
+                "sub_question_text": "3",
+                "question_type": "true_false",
+                "answers": "[\"a) \\u0110\\u00fang\", \"b) Sai\", \"c) \\u0110\\u00fang\", \"d) Sai\"]",
+                "correct_answer": null
+              },
+              {
+                "sub_question_text": "4",
+                "question_type": "true_false",
+                "answers": "[\"a) \\u0110\\u00fang\", \"b) Sai\", \"c) \\u0110\\u00fang\", \"d) \\u0110\\u00fang\"]",
+                "correct_answer": null
+              }
+            ]
           },
           {
-            "question_text": "Câu 3",
-            "question_type": "short_answer",
+            "question_text": "Phần III. Câu trắc nghiệm trả lời ngắn. Thí sinh trả lời từ câu 1 đến câu 6",
+            "question_type": "composite",
             "difficulty": null,
             "subject": "math",
-            "topic": null,
+            "topic": "unknown",
             "answers": null,
-            "correct_answer": "3",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 4",
-            "question_type": "short_answer",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": null,
-            "correct_answer": "3200",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 5",
-            "question_type": "short_answer",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": null,
-            "correct_answer": "333",
-            "image_list": []
-          },
-          {
-            "question_text": "Câu 6",
-            "question_type": "short_answer",
-            "difficulty": null,
-            "subject": "math",
-            "topic": null,
-            "answers": null,
-            "correct_answer": "0,08",
-            "image_list": []
+            "correct_answer": null,
+            "image_list": [],
+            "sub_questions": [
+              {
+                "sub_question_text": "1",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "4,9"
+              },
+              {
+                "sub_question_text": "2",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "43"
+              },
+              {
+                "sub_question_text": "3",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "3"
+              },
+              {
+                "sub_question_text": "4",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "3200"
+              },
+              {
+                "sub_question_text": "5",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "333"
+              },
+              {
+                "sub_question_text": "6",
+                "question_type": "short_answer",
+                "answers": null,
+                "correct_answer": "0,08"
+              }
+            ]
           }
         ]
       }
     ]
   },
-  "timestamp": "2026-04-13T14:36:51.401121",
+  "timestamp": "2026-04-23T13:36:21.368134",
   "request_id": null
 }

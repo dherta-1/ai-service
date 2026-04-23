@@ -22,7 +22,9 @@ from src.entities.document import Document
 from src.entities.file_metadata import FileMetadata
 from src.entities.page import Page
 from src.entities.question import Question
+from src.entities.subject import Subject
 from src.entities.task import Task
+from src.entities.topic import Topic
 
 logging.basicConfig(
     level=logging.INFO,
@@ -58,6 +60,8 @@ def setup_di_container() -> None:
         provider=settings.llm_provider,
         api_key=settings.llm_api_key,
         model=settings.llm_model,
+        embedding_model=settings.llm_embedding_model,
+        embedding_dimension=settings.llm_embedding_dimension,
         host=settings.llm_host,
         use_vertex_ai=settings.llm_use_vertex_ai,
         vertex_project=settings.llm_vertex_project,
@@ -109,7 +113,7 @@ def bind_models_to_database() -> None:
         db_instance = db_manager.get_db()
 
         # List of all models to bind
-        models = [Document, FileMetadata, Page, Question, Task]
+        models = [Document, FileMetadata, Page, Question, Subject, Task, Topic]
 
         # Bind each model to the database
         for model in models:

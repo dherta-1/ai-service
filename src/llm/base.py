@@ -18,7 +18,8 @@ class LLMConfig:
     provider: str  # 'gemini' or 'ollama'
     api_key: Optional[str] = None
     model: str = "gemini-2.5-flash"
-
+    embedding_model: str = "gemini-embedding-001"  # Optional separate embedding model
+    embedding_dimension: int = 768  # Optional embedding dimension hint
     # Ollama specific
     host: Optional[str] = None  # Default: http://localhost:11434
 
@@ -55,6 +56,8 @@ class BaseLLMClient(ABC):
         """Initialize LLM client with configuration"""
         self.config = config
         self.model = config.model
+        self.embedding_model = config.embedding_model
+        self.embedding_dimension = config.embedding_dimension
 
     @abstractmethod
     def generate(
@@ -90,6 +93,19 @@ class BaseLLMClient(ABC):
 
         Returns:
             Generated text response
+        """
+        pass
+
+    @abstractmethod
+    def embed(self, input: str | list[str], **kwargs) -> list[list[float]]:
+        """
+        Generate embeddings for input text(s)
+
+        Args:
+            input: Single string or list of strings to embed
+            **kwargs: Additional provider-specific parameters
+        Returns:
+            List of embedding vectors corresponding to input strings
         """
         pass
 

@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from pathlib import Path
-from typing import Any, Optional, TypedDict
+from typing import Any, Callable, Optional, TypedDict
 
 from PIL import Image
 
@@ -20,11 +20,15 @@ class ContentExtractionInput(TypedDict):
     file_id: str
     s3_prefix: str
     bucket: Optional[str]
+    # Optional callback: (object_key, name, size, mime_type) -> file_metadata_id str
+    on_image_saved: Optional[Callable[[str, str, int, str], str]]
 
 
 class ContentExtractionOutput(TypedDict):
     page_number: int
     markdown_content: str
+    # Maps S3 object key -> file_metadata id for images saved this page
+    image_file_ids: dict[str, str]
 
 
 class ContentExtractionPipeline(
@@ -64,9 +68,13 @@ class ContentExtractionPipeline(
         file_id = payload["file_id"]
         s3_prefix = payload["s3_prefix"]
         bucket = payload["bucket"]
+        on_image_saved: Optional[Callable[[str, str, int, str], str]] = payload.get(
+            "on_image_saved"
+        )
 
         page_items = await self._extract_page_with_ocr(image_path, page_index)
 
+        image_file_ids: dict[str, str] = {}
         image_items = [item for item in page_items if item["content_type"] == "image"]
         for image_idx, item in enumerate(image_items, start=1):
             bbox = item.get("bbox")
@@ -90,14 +98,18 @@ class ContentExtractionPipeline(
                 self.s3_client.upload_file(str(crop_path), bucket, key)
                 item["illustration_s3_key"] = key
 
-                presigned_url = self._generate_presigned_url(bucket, key)
-                if presigned_url:
-                    item["illustration_presigned_url"] = presigned_url
+                # Register in file_metadata and get back a stable file id
+                if on_image_saved:
+                    size = crop_path.stat().st_size
+                    fm_id = on_image_saved(key, crop_path.name, size, "image/png")
+                    item["illustration_file_id"] = fm_id
+                    image_file_ids[key] = fm_id
 
         markdown_content = self._generate_page_markdown(page_items)
         return {
             "page_number": page_index + 1,
             "markdown_content": markdown_content,
+            "image_file_ids": image_file_ids,
         }
 
     async def _extract_page_with_ocr(
@@ -167,19 +179,6 @@ class ContentExtractionPipeline(
         required = ("x1", "y1", "x2", "y2")
         return all(k in box and box[k] is not None for k in required)
 
-    def _generate_presigned_url(
-        self, bucket: str, key: str, expiration: int = 3600
-    ) -> str | None:
-        try:
-            return self.s3_client.generate_presigned_url(
-                "get_object",
-                Params={"Bucket": bucket, "Key": key},
-                ExpiresIn=expiration,
-            )
-        except Exception as exc:
-            logger.warning("Failed to generate presigned URL for %s: %s", key, exc)
-            return None
-
     @staticmethod
     def _generate_page_markdown(items: list[dict[str, Any]]) -> str:
         if not items:
@@ -199,15 +198,9 @@ class ContentExtractionPipeline(
                 continue
 
             if content_type in {"image", "figure", "chart", "graphic"}:
-                path = (
-                    item.get("illustration_presigned_url")
-                    or item.get("illustration_s3_key")
-                    or item.get("illustration_local_path")
-                )
-                if path:
-                    markdown_parts.append(
-                        f'<img src="{path}" alt="{content_type.capitalize()}" />'
-                    )
+                file_id = item.get("illustration_file_id")
+                if file_id:
+                    markdown_parts.append(f"<dh-image>{file_id}</dh-image>")
                 else:
                     markdown_parts.append(f"[{content_type.capitalize()}]")
                 continue

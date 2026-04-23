@@ -12,5 +12,7 @@ Rules:
 5. Output only clean markdown for this page, no JSON, no explanations.
 
 OCR markdown input:
+[RAW TEXT START]
 {markdown_content}
+[RAW TEXT END]
 """.strip()

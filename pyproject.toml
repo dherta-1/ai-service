@@ -25,6 +25,7 @@ dependencies = [
     "boto3>=1.42.77",
     "paddleocr[all]>=3.2.0",
     "ultralytics>=8.3.0",
+    "pgvector>=0.4.2",
 ]
 
 [project.optional-dependencies]

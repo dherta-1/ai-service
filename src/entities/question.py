@@ -1,7 +1,8 @@
 from src.shared.base.base_entity import BaseEntity
 from src.entities.page import Page
-from peewee import CharField, ForeignKeyField, TextField
+from peewee import CharField, ForeignKeyField, TextField, SmallIntegerField
 from playhouse.postgres_ext import BinaryJSONField
+from pgvector.peewee import VectorField
 
 
 class Question(BaseEntity):
@@ -17,10 +18,10 @@ class Question(BaseEntity):
         max_length=50, null=True
     )  # Optional difficulty level (e.g., "easy", "medium", "hard")
     subject = CharField(
-        max_length=255, null=True
+        max_length=50, null=True, index=True
     )  # Optional subject for categorization
     topic = CharField(
-        max_length=255, null=True
+        max_length=50, null=True, index=True
     )  # Optional topic for further categorization (e.g., "algebra", "geometry", etc.)
     sub_questions = BinaryJSONField(
         null=True
@@ -35,6 +36,14 @@ class Question(BaseEntity):
     image_list = BinaryJSONField(
         null=True
     )  # JSON string to store list of file ids (e.g., ["file_id1", "file_id2", ...])
+
+    vector_embedding = VectorField(
+        dimensions=768, null=True
+    )  # Optional field to store vector embedding for the question
+
+    status = SmallIntegerField(
+        default=0
+    )  # Status field for approving state (e.g., 0 = pending, 1 = approved, 2 = rejected)
 
     class Meta:
         collection_name = "questions"

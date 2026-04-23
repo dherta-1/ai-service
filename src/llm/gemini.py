@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from .base import BaseLLMClient, LLMConfig, GenerationConfig
+from google.genai import types
+from src.shared.utils.retry import retry_sync, RetryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,6 @@ class GeminiClient(BaseLLMClient):
         """Create and configure Gemini client"""
         try:
             from google import genai
-            from google.genai import types
         except ImportError:
             raise ImportError(
                 "google-genai is not installed. "
@@ -63,6 +64,25 @@ class GeminiClient(BaseLLMClient):
         self._types = types
         return client
 
+    @retry_sync(RetryConfig(max_retries=3))
+    def _generate_content(
+        self, prompt: str, gen_config: GenerationConfig, **kwargs
+    ) -> str:
+        """Internal method with retry logic for generating content"""
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=prompt,
+            config=self._create_generation_config(gen_config),
+            **kwargs,
+        )
+        logger.info(
+            f"Token usage for chat: {response.usage_metadata.total_token_count}"
+        )
+        if response.text:
+            return response.text
+        logger.warning("Empty response from Gemini")
+        return ""
+
     def generate(
         self, prompt: str, gen_config: Optional[GenerationConfig] = None, **kwargs
     ) -> str:
@@ -78,26 +98,33 @@ class GeminiClient(BaseLLMClient):
             Generated text response
         """
         config = gen_config or GenerationConfig()
-
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=prompt,
-                config=self._create_generation_config(config),
-                **kwargs,
-            )
-            logger.info(
-                f"Token usage for chat: {response.usage_metadata.total_token_count}"
-            )
-            if response.text:
-                return response.text
-            else:
-                logger.warning("Empty response from Gemini")
-                return ""
-
+            return self._generate_content(prompt, config, **kwargs)
         except Exception as e:
             logger.error(f"Error generating content from Gemini: {e}")
             raise
+
+    @retry_sync(RetryConfig(max_retries=3))
+    def _chat_content(
+        self,
+        gemini_messages: List[Dict[str, str]],
+        gen_config: GenerationConfig,
+        **kwargs,
+    ) -> str:
+        """Internal method with retry logic for chat"""
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=gemini_messages,
+            config=self._create_generation_config(gen_config),
+            **kwargs,
+        )
+        logger.info(
+            f"Token usage for chat: {response.usage_metadata.total_token_count}"
+        )
+        if response.text:
+            return response.text
+        logger.warning("Empty response from Gemini chat")
+        return ""
 
     def chat(
         self,
@@ -122,21 +149,7 @@ class GeminiClient(BaseLLMClient):
         gemini_messages = self._convert_messages(messages)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=gemini_messages,
-                config=self._create_generation_config(config),
-                **kwargs,
-            )
-            logger.info(
-                f"Token usage for chat: {response.usage_metadata.total_token_count}"
-            )
-            if response.text:
-                return response.text
-            else:
-                logger.warning("Empty response from Gemini chat")
-                return ""
-
+            return self._chat_content(gemini_messages, config, **kwargs)
         except Exception as e:
             logger.error(f"Error in Gemini chat: {e}")
             raise
@@ -220,18 +233,102 @@ class GeminiClient(BaseLLMClient):
             except Exception as e:
                 logger.error(f"Error closing Gemini client: {e}")
 
+    @retry_sync(RetryConfig(max_retries=3))
+    def _embed_content(self, text: str, **kwargs) -> list[float]:
+        """Internal method with retry logic for embedding a single text"""
+        config_kwargs = {"output_dimensionality": self.embedding_dimension}
+
+        # task_type is only supported for gemini-embedding-001, not gemini-embedding-2
+        if self.embedding_model == "gemini-embedding-001":
+            config_kwargs["task_type"] = "SEMANTIC_SIMILARITY"
+
+        response = self.client.models.embed_content(
+            model=self.embedding_model,
+            contents=text,
+            config=types.EmbedContentConfig(**config_kwargs),
+            **kwargs,
+        )
+
+        # API returns embeddings (plural) as a list; extract the first element
+        if response and hasattr(response, "embeddings") and response.embeddings:
+            embedding_obj = response.embeddings[0]
+            # Extract the vector values
+            if hasattr(embedding_obj, "values"):
+                return list(embedding_obj.values)
+            return list(embedding_obj)
+
+        logger.warning(f"Empty embedding response for text: {text[:50]}...")
+        raise ValueError("Failed to generate embedding")
+
+    def embed(self, input: str | list[str], **kwargs) -> list[list[float]]:
+        """
+        Generate embeddings for input text(s) using Gemini
+
+        Args:
+            input: Single string or list of strings to embed
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            List of embedding vectors corresponding to input strings
+
+        Raises:
+            ValueError: If input is empty
+            Exception: If embedding generation fails
+        """
+        if isinstance(input, str):
+            input = [input]
+        elif not input:
+            raise ValueError("Input cannot be empty")
+
+        try:
+            embeddings = []
+            for text in input:
+                embedding = self._embed_content(text, **kwargs)
+                embeddings.append(embedding)
+
+            logger.info(f"Generated {len(embeddings)} embedding(s) using Gemini")
+            return embeddings
+
+        except Exception as e:
+            logger.error(f"Error generating embeddings from Gemini: {e}")
+            raise
+
+    @retry_sync(RetryConfig(max_retries=3))
+    def _upload_file_with_retry(self, file_path: str):
+        """Internal method with retry logic for file upload"""
+        return self.client.files.upload(file=file_path)
+
     def _upload_file(self, file_path: str):
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
 
         try:
-            uploaded_file = self.client.files.upload(file=str(path))
+            uploaded_file = self._upload_file_with_retry(str(path))
             logger.info(f"Uploaded file to Gemini: {file_path}")
             return uploaded_file
         except Exception as e:
             logger.error(f"Error uploading file to Gemini: {e}")
             raise
+
+    @retry_sync(RetryConfig(max_retries=3))
+    def _generate_file_content(
+        self, contents: list, gen_config: GenerationConfig, **kwargs
+    ) -> str:
+        """Internal method with retry logic for file generation"""
+        response = self.client.models.generate_content(
+            model=self.model,
+            contents=contents,
+            config=self._create_generation_config(gen_config),
+            **kwargs,
+        )
+        logger.info(
+            f"Token usage for chat: {response.usage_metadata.total_token_count}"
+        )
+        if response.text:
+            return response.text
+        logger.warning("Empty response from Gemini file generation")
+        return ""
 
     def generate_file(
         self,
@@ -250,19 +347,7 @@ class GeminiClient(BaseLLMClient):
         contents.append(file_obj)
 
         try:
-            response = self.client.models.generate_content(
-                model=self.model,
-                contents=contents,
-                config=self._create_generation_config(config),
-                **kwargs,
-            )
-            logger.info(
-                f"Token usage for chat: {response.usage_metadata.total_token_count}"
-            )
-            if response.text:
-                return response.text
-            logger.warning("Empty response from Gemini file generation")
-            return ""
+            return self._generate_file_content(contents, config, **kwargs)
         except Exception as e:
             logger.error(f"Error generating from file in Gemini: {e}")
             raise

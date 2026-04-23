@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from .base import BaseLLMClient, LLMConfig, GenerationConfig
+from src.shared.utils.retry import retry_sync, RetryConfig
 
 logger = logging.getLogger(__name__)
 
@@ -45,6 +46,21 @@ class OllamaClient(BaseLLMClient):
 
         return client
 
+    @retry_sync(RetryConfig(max_retries=3))
+    def _generate_with_retry(self, prompt: str, options: Dict[str, Any], **kwargs) -> str:
+        """Internal method with retry logic for generate"""
+        response = self.client.generate(
+            model=self.model,
+            prompt=prompt,
+            stream=False,
+            options=options,
+            **kwargs,
+        )
+        if response and "response" in response:
+            return response["response"]
+        logger.warning("Empty response from Ollama")
+        return ""
+
     def generate(
         self, prompt: str, gen_config: Optional[GenerationConfig] = None, **kwargs
     ) -> str:
@@ -62,26 +78,29 @@ class OllamaClient(BaseLLMClient):
         config = gen_config or GenerationConfig()
 
         try:
-            response = self.client.generate(
-                model=self.model,
-                prompt=prompt,
-                stream=False,
-                options={
-                    "temperature": config.temperature,
-                    **({"num_predict": config.max_tokens} if config.max_tokens else {}),
-                },
-                **kwargs,
-            )
-
-            if response and "response" in response:
-                return response["response"]
-            else:
-                logger.warning("Empty response from Ollama")
-                return ""
-
+            options = {
+                "temperature": config.temperature,
+                **({"num_predict": config.max_tokens} if config.max_tokens else {}),
+            }
+            return self._generate_with_retry(prompt, options, **kwargs)
         except Exception as e:
             logger.error(f"Error generating content from Ollama: {e}")
             raise
+
+    @retry_sync(RetryConfig(max_retries=3))
+    def _chat_with_retry(self, messages: List[Dict[str, str]], options: Dict[str, Any], **kwargs) -> str:
+        """Internal method with retry logic for chat"""
+        response = self.client.chat(
+            model=self.model,
+            messages=messages,
+            stream=False,
+            options=options,
+            **kwargs,
+        )
+        if response and "message" in response:
+            return response["message"]["content"]
+        logger.warning("Empty response from Ollama chat")
+        return ""
 
     def chat(
         self,
@@ -103,23 +122,11 @@ class OllamaClient(BaseLLMClient):
         config = gen_config or GenerationConfig()
 
         try:
-            response = self.client.chat(
-                model=self.model,
-                messages=messages,
-                stream=False,
-                options={
-                    "temperature": config.temperature,
-                    **({"num_predict": config.max_tokens} if config.max_tokens else {}),
-                },
-                **kwargs,
-            )
-
-            if response and "message" in response:
-                return response["message"]["content"]
-            else:
-                logger.warning("Empty response from Ollama chat")
-                return ""
-
+            options = {
+                "temperature": config.temperature,
+                **({"num_predict": config.max_tokens} if config.max_tokens else {}),
+            }
+            return self._chat_with_retry(messages, options, **kwargs)
         except Exception as e:
             logger.error(f"Error in Ollama chat: {e}")
             raise
@@ -263,6 +270,53 @@ class OllamaClient(BaseLLMClient):
         # but we log for consistency
         logger.info("Ollama client closed")
 
+    @retry_sync(RetryConfig(max_retries=3))
+    def _embed_with_retry(self, input: list[str], **kwargs) -> list[list[float]]:
+        """Internal method with retry logic for embed"""
+        response = self.client.embed(
+            model=self.embedding_model,
+            input=input,
+            dimensions=self.embedding_dimension,
+            **kwargs,
+        )
+        if response and "embeddings" in response:
+            return response["embeddings"]
+        logger.warning("Empty embedding response from Ollama")
+        raise ValueError("Failed to generate embeddings from Ollama")
+
+    def embed(self, input: str | list[str], **kwargs) -> list[list[float]]:
+        """
+        Generate embeddings for input text(s) using Ollama
+
+        Args:
+            input: Single string or list of strings to embed
+            **kwargs: Additional provider-specific parameters
+
+        Returns:
+            List of embedding vectors corresponding to input strings
+
+        Raises:
+            ValueError: If input is empty
+            Exception: If embedding generation fails
+        """
+        if isinstance(input, str):
+            input = [input]
+        elif not input:
+            raise ValueError("Input cannot be empty")
+
+        try:
+            embeddings = self._embed_with_retry(input, **kwargs)
+            logger.info(f"Generated {len(embeddings)} embedding(s) using Ollama")
+            return embeddings
+        except Exception as e:
+            logger.error(f"Error generating embeddings from Ollama: {e}")
+            raise
+
+    @retry_sync(RetryConfig(max_retries=2))
+    def _health_check_with_retry(self):
+        """Internal method with retry logic for health check"""
+        return self.client.list()
+
     def health_check(self) -> bool:
         """
         Check if Ollama server is accessible
@@ -271,12 +325,16 @@ class OllamaClient(BaseLLMClient):
             True if server is accessible, False otherwise
         """
         try:
-            # Try to list models as a health check
-            self.client.list()
+            self._health_check_with_retry()
             return True
         except Exception as e:
             logger.error(f"Ollama health check failed: {e}")
             return False
+
+    @retry_sync(RetryConfig(max_retries=2))
+    def _list_models_with_retry(self):
+        """Internal method with retry logic for listing models"""
+        return self.client.list()
 
     def list_models(self) -> List[str]:
         """
@@ -286,7 +344,7 @@ class OllamaClient(BaseLLMClient):
             List of model names
         """
         try:
-            response = self.client.list()
+            response = self._list_models_with_retry()
             if response and "models" in response:
                 return [model["name"] for model in response["models"]]
             return []

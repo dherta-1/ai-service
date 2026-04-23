@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # LLM
     llm_provider: str = Field(default="gemini", env="LLM_PROVIDER")
     llm_model: str = Field(default="gemini-2.5-flash", env="LLM_MODEL")
+    llm_embedding_model: str = Field(
+        default="gemini-embedding-001", env="LLM_EMBEDDING_MODEL"
+    )
+    llm_embedding_dimension: int = Field(default=1536, env="LLM_EMBEDDING_DIMENSION")
     llm_api_key: Optional[str] = Field(default=None, env="LLM_API_KEY")
     llm_host: Optional[str] = Field(default=None, env="LLM_HOST")
     llm_use_vertex_ai: bool = Field(default=False, env="LLM_USE_VERTEX_AI")
