@@ -396,6 +396,7 @@ class QuestionExtractionPipeline(
             "true/false": QuestionType.TRUE_FALSE.value,
             "true false": QuestionType.TRUE_FALSE.value,
             "short answer": QuestionType.SHORT_ANSWER.value,
+            "selection": QuestionType.SELECTION.value,
             "composite": QuestionType.COMPOSITE.value,
         }
         normalized = aliases.get(raw, raw)

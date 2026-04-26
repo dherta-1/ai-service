@@ -14,6 +14,9 @@ from src.ocr.registry import register_ocr_registry
 from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.ai_route import router as ai_router
+from src.routes.document_route import router as document_router
+from src.routes.page_route import router as page_router
+from src.routes.question_route import router as question_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
 from src.services.document_processing_service import DocumentProcessingService
@@ -202,6 +205,9 @@ def create_app() -> FastAPI:
 
     # Include routers
     app.include_router(ai_router, prefix="/ai", tags=["ai"])
+    app.include_router(document_router, prefix="/documents", tags=["documents"])
+    app.include_router(page_router, prefix="/pages", tags=["pages"])
+    app.include_router(question_router, prefix="/questions", tags=["questions"])
 
     @app.get("/")
     async def root():
