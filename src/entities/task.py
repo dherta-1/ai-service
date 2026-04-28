@@ -1,17 +1,22 @@
 from src.shared.base.base_entity import BaseEntity
 from src.entities.document import Document
-from peewee import ForeignKeyField, TextField, FloatField
+from peewee import CharField, ForeignKeyField, FloatField, IntegerField, UUIDField
+from playhouse.postgres_ext import BinaryJSONField
 from src.shared.constants.general import Status
 
 
 class Task(BaseEntity):
 
-    document = ForeignKeyField(Document, backref="tasks")
-    logs = TextField(null=True)  # Store logs or progress information
-    progress = FloatField(default=0.0)  # Progress percentage (0.0 to 100.0)
-    status = TextField(
-        default=Status.PENDING.value
-    )  # Task status (e.g., pending, processing, completed, failed)
+    name = CharField(max_length=255, null=True)
+    type = CharField(max_length=50, null=True)
+    entity_id = UUIDField(null=True)
+    entity_type = CharField(max_length=50, null=True)
+    document = ForeignKeyField(Document, backref="tasks", null=True)
+    logs = BinaryJSONField(null=True)
+    status = CharField(default=Status.PENDING.value, max_length=50)
+    progress = FloatField(default=0.0)
+    total_pages = IntegerField(null=True)
+    processed_pages = IntegerField(default=0)
 
     class Meta:
-        collection_name = "tasks"
+        table_name = "tasks"

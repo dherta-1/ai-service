@@ -12,6 +12,8 @@ from src.llm.base import GenerationConfig
 from src.shared.base.base_pipeline import BasePipeline
 from src.shared.constants.question import DifficultyLevel, QuestionType, Subject
 from src.settings import get_settings
+from src.prompts.question_extraction_prompt import question_extraction_prompt_template
+from src.shared.helpers.debug_export import export_pipeline_debug
 
 logger = logging.getLogger(__name__)
 
@@ -22,8 +24,7 @@ class ExtractedQuestion(TypedDict):
     difficulty: str | None
     subject: str | None
     topic: str | None
-    answers: str | None
-    correct_answer: str | None
+    answers: list | None
     image_list: list[str]
 
 
@@ -48,9 +49,9 @@ class QuestionExtractionPipeline(
 ):
     """Extract and classify page questions using multimodal LLM input."""
 
-    def __init__(self, llm_client, prompt_template: str):
+    def __init__(self, llm_client):
         self.llm_client = llm_client
-        self.prompt_template = prompt_template
+        self.prompt_template_base = question_extraction_prompt_template
 
     def validate(self, payload: QuestionExtractionInput) -> None:
         """Validate input payload."""
@@ -89,6 +90,17 @@ class QuestionExtractionPipeline(
         markdown_content = (payload.get("markdown_content") or "").strip()
         overlap_content = payload.get("overlap_content")
 
+        export_pipeline_debug(
+            "question_extraction",
+            "input",
+            {
+                "page_number": page_number,
+                "content_length": len(markdown_content),
+                "has_overlap": overlap_content is not None,
+            },
+            page_number,
+        )
+
         if not markdown_content:
             return {"page_number": page_number, "questions": []}
 
@@ -103,8 +115,17 @@ class QuestionExtractionPipeline(
             if overlap_text:
                 overlap_section = f"\nOverlap content from page {previous_page} (to resolve questions spanning pages):\n{overlap_text}"
 
-        prompt = self.prompt_template.format(
-            markdown_content=markdown_content, overlap_section=overlap_section
+        # Build injected variables
+        question_types = ", ".join([f'"{qt.value}"' for qt in QuestionType])
+        difficulty_levels = ", ".join([f'"{dl.value}"' for dl in DifficultyLevel])
+        subjects = ", ".join([f'"{s.value}"' for s in Subject])
+
+        prompt = self.prompt_template_base.format(
+            markdown_content=markdown_content,
+            overlap_section=overlap_section,
+            question_types=question_types,
+            difficulty_levels=difficulty_levels,
+            subjects=subjects,
         )
 
         try:
@@ -137,6 +158,25 @@ class QuestionExtractionPipeline(
                 "questions": questions,
             }
             logger.debug(f"Question extraction result structure: {list(result.keys())}")
+
+            export_pipeline_debug(
+                "question_extraction",
+                "output",
+                {
+                    "page_number": page_number,
+                    "question_count": len(questions),
+                    "questions_summary": [
+                        {
+                            "text": q.get("question_text", "")[:100],
+                            "type": q.get("question_type"),
+                            "difficulty": q.get("difficulty"),
+                        }
+                        for q in questions
+                    ],
+                },
+                page_number,
+            )
+
             return result
         except Exception as exc:
             logger.error(
@@ -144,6 +184,16 @@ class QuestionExtractionPipeline(
                 page_number,
                 exc,
                 exc_info=True,
+            )
+            export_pipeline_debug(
+                "question_extraction",
+                "error",
+                {
+                    "page_number": page_number,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                },
+                page_number,
             )
             return {"page_number": page_number, "questions": []}
 
@@ -360,7 +410,6 @@ class QuestionExtractionPipeline(
             topic = cls._optional_str(item.get("topic"))
             answers = cls._normalize_answers(item.get("answers"), question_type)
             sub_questions = cls._normalize_sub_questions(item.get("sub_questions", []))
-            correct_answer = cls._optional_str(item.get("correct_answer"))
             image_list = cls._normalize_image_list(item.get("image_list"))
 
             normalized.append(
@@ -371,7 +420,6 @@ class QuestionExtractionPipeline(
                     "subject": subject,
                     "topic": topic,
                     "answers": answers,
-                    "correct_answer": correct_answer,
                     "image_list": image_list,
                     "sub_questions": sub_questions,
                 }
@@ -430,34 +478,39 @@ class QuestionExtractionPipeline(
         return None
 
     @staticmethod
-    def _normalize_answers(value: Any, question_type: str) -> str | None:
-        if question_type in {QuestionType.SHORT_ANSWER.value, QuestionType.ESSAY.value}:
-            return None
-
+    def _normalize_answers(value: Any, question_type: str) -> list | None:
+        """Normalize answers to list of {value, is_correct} dicts or null."""
         if value is None:
-            if question_type == QuestionType.TRUE_FALSE.value:
-                return json.dumps(["True", "False"])
             return None
 
-        # Keep storage shape aligned to entity: JSON string.
-        if isinstance(value, list):
-            cleaned = [str(item).strip() for item in value if str(item).strip()]
-            return json.dumps(cleaned) if cleaned else None
+        # Ensure value is a list
+        if isinstance(value, str):
+            try:
+                parsed = json.loads(value)
+                if isinstance(parsed, list):
+                    value = parsed
+                else:
+                    value = [value]
+            except json.JSONDecodeError:
+                value = [value]
+        elif not isinstance(value, list):
+            value = [value]
 
-        text = str(value).strip()
-        if not text:
-            return None
+        # Filter and normalize answer items
+        answers = []
+        for item in value:
+            if isinstance(item, dict):
+                # Already a dict with {value, is_correct} structure
+                answer_val = str(item.get("value", "")).strip()
+                if answer_val:
+                    answers.append(item)
+            else:
+                # Plain string value
+                answer_val = str(item).strip()
+                if answer_val:
+                    answers.append({"value": answer_val, "is_correct": False})
 
-        # If model already returned JSON array in text form, keep as normalized JSON.
-        try:
-            parsed = json.loads(text)
-            if isinstance(parsed, list):
-                cleaned = [str(item).strip() for item in parsed if str(item).strip()]
-                return json.dumps(cleaned) if cleaned else None
-        except json.JSONDecodeError:
-            pass
-
-        return text
+        return answers if answers else None
 
     @staticmethod
     def _normalize_sub_questions(value: Any) -> list[ExtractedQuestion]:
@@ -481,16 +534,21 @@ class QuestionExtractionPipeline(
             answers = QuestionExtractionPipeline._normalize_answers(
                 item.get("answers"), question_type
             )
-            correct_answer = QuestionExtractionPipeline._optional_str(
-                item.get("correct_answer")
-            )
+
+            # Extract order field (1-indexed)
+            order = item.get("order")
+            if order is not None:
+                try:
+                    order = int(order)
+                except (ValueError, TypeError):
+                    order = None
 
             normalized_subs.append(
                 {
                     "sub_question_text": sub_question_text,
                     "question_type": question_type,
                     "answers": answers,
-                    "correct_answer": correct_answer,
+                    "order": order,
                 }
             )
 

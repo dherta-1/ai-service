@@ -12,6 +12,7 @@ class Settings(BaseSettings):
     app_version: str = Field(default="0.1.0", env="APP_VERSION")
     debug: bool = Field(default=False, env="DEBUG")
     run_seeds: bool = Field(default=False, env="RUN_SEEDS")
+    log_results: bool = Field(default=True, env="LOG_RESULTS")
 
     # Server
     host: str = Field(default="0.0.0.0", env="HOST")

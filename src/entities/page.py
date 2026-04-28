@@ -10,10 +10,13 @@ class Page(BaseEntity):
     page_number = IntegerField()
     content = TextField(null=True)  # Store extracted raw markdown content of the page
     validated_content = TextField(null=True)  # Store validated content after processing
+    overlap_content = TextField(
+        null=True
+    )  # Store overlap content from previous page for question extraction
     page_image_id = UUIDField(null=True)  # Store the file id of the page image (if any)
     image_list = BinaryJSONField(
         null=True
     )  # JSON string to store list of file ids (e.g., ["file_id1", "file_id2", ...])
 
     class Meta:
-        collection_name = "pages"
+        table_name = "pages"

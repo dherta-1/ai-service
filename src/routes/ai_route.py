@@ -1,53 +1,73 @@
-import os
-import uuid
-from pathlib import Path
-from typing import Optional
-
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from typing import List
+from uuid import UUID
+from fastapi import APIRouter, Depends, Body, status
 
 from src.container import get_di_container
-from src.services.document_processing_service import DocumentProcessingService
+from src.lib.event_bus.kafka.producer import KafkaProducerImpl
+from src.services.document_service import DocumentService
+from src.shared.constants.general import Status
 from src.shared.response.response_models import create_response
 
 router = APIRouter()
 
 
-@router.post("/extract-document")
-async def extract_document(
-    file: UploadFile = File(...),
-    s3_prefix: str = Form(default="document-extraction"),
+def get_document_service() -> DocumentService:
+    return get_di_container().resolve(DocumentService)
+
+
+def get_kafka_producer() -> KafkaProducerImpl:
+    return get_di_container().resolve(KafkaProducerImpl)
+
+
+@router.post("/queue", status_code=status.HTTP_202_ACCEPTED)
+async def queue_documents_for_extraction(
+    document_ids: List[UUID] = Body(..., embed=True),
+    doc_service: DocumentService = Depends(get_document_service),
+    kafka_producer: KafkaProducerImpl = Depends(get_kafka_producer),
 ):
-    """Upload document and run extraction flow."""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="Missing filename")
+    """Stage 2: Queue documents for extraction (produce document_extraction_requested events).
 
-    upload_dir = Path("output") / "uploads"
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    Takes a list of document IDs that have been uploaded via /documents/upload,
+    and publishes events to start the extraction pipeline.
+    """
+    queued = []
+    errors = []
 
-    ext = Path(file.filename).suffix
-    saved_name = f"{uuid.uuid4()}{ext}"
-    local_path = upload_dir / saved_name
+    for doc_id in document_ids:
+        try:
+            document = doc_service.get_by_id(doc_id)
+            if not document:
+                errors.append(
+                    {"document_id": str(doc_id), "error": "Document not found"}
+                )
+                continue
 
-    content = await file.read()
-    local_path.write_bytes(content)
+            # Still allow queuing even if document status is completed
+            if document.status not in [Status.PENDING.value, Status.COMPLETED.value]:
+                errors.append(
+                    {
+                        "document_id": str(doc_id),
+                        "error": f"Document status is {document.status}, expected PENDING or COMPLETED",
+                    }
+                )
+                continue
 
-    try:
-        container = get_di_container()
-        service = container.resolve(DocumentProcessingService)
-        result = await service.process_document(
-            local_file_path=str(local_path),
-            original_filename=file.filename,
-            s3_prefix=s3_prefix,
-        )
-        return create_response(data=result, message="Document extraction completed")
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Extraction failed: {e}") from e
-    finally:
-        # Keep uploaded source only when needed for debugging
-        if local_path.exists():
-            try:
-                os.remove(local_path)
-            except OSError:
-                pass
+            # Publish extraction event
+            kafka_producer.send(
+                key=None,
+                value={
+                    "event_type": "document_extraction_requested",
+                    "document_id": str(document.id),
+                },
+                topic="document_extraction_requested",
+            )
+
+            queued.append(str(doc_id))
+
+        except Exception as e:
+            errors.append({"document_id": str(doc_id), "error": str(e)})
+
+    return create_response(
+        data={"queued": queued, "errors": errors},
+        message=f"Queued {len(queued)} documents for extraction",
+    )

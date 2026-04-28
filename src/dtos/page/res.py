@@ -12,6 +12,7 @@ class PageResponse(BaseModel):
     page_number: int
     content: Optional[str] = None
     validated_content: Optional[str] = None
+    overlap_content: Optional[str] = None
     page_image_id: Optional[UUID] = None
     image_list: Optional[list] = None
     created_at: datetime

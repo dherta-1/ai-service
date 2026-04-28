@@ -8,6 +8,7 @@ from typing import TypedDict
 
 from src.llm.base import GenerationConfig
 from src.shared.base.base_pipeline import BasePipeline
+from src.shared.helpers.debug_export import export_pipeline_debug
 
 logger = logging.getLogger(__name__)
 
@@ -58,6 +59,17 @@ class ContentValidationPipeline(
         markdown_content = (payload.get("markdown_content") or "").strip()
         image_path = payload["image_path"]
 
+        export_pipeline_debug(
+            "content_validation",
+            "input",
+            {
+                "page_number": page_number,
+                "markdown_length": len(markdown_content),
+                "markdown_preview": markdown_content[:500],
+            },
+            page_number,
+        )
+
         if not markdown_content:
             return {"page_number": page_number, "content": ""}
 
@@ -78,12 +90,34 @@ class ContentValidationPipeline(
             normalized_content = self._extract_markdown(raw_response)
             if not normalized_content:
                 normalized_content = markdown_content
-            return {"page_number": page_number, "content": normalized_content}
+
+            result = {"page_number": page_number, "content": normalized_content}
+            export_pipeline_debug(
+                "content_validation",
+                "output",
+                {
+                    "page_number": page_number,
+                    "content_length": len(normalized_content),
+                    "content_preview": normalized_content[:500],
+                },
+                page_number,
+            )
+            return result
         except Exception as exc:
             logger.warning(
                 "LLM validation failed for page %s, fallback to OCR markdown: %s",
                 page_number,
                 exc,
+            )
+            export_pipeline_debug(
+                "content_validation",
+                "error",
+                {
+                    "page_number": page_number,
+                    "error": str(exc),
+                    "error_type": type(exc).__name__,
+                },
+                page_number,
             )
             return {"page_number": page_number, "content": markdown_content}
 

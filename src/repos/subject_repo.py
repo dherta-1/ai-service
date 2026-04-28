@@ -11,8 +11,8 @@ class SubjectRepository(BaseRepo[Subject]):
     def get_by_code(self, code: str) -> Optional[Subject]:
         return self.filter_one(code=code)
 
-    def get_or_create(self, code: str, name: str) -> Subject:
+    def get_or_create(self, code: str, name: str, name_vi: Optional[str] = None) -> Subject:
         existing = self.get_by_code(code)
         if existing:
             return existing
-        return self.create(code=code, name=name)
+        return self.create(code=code, name=name, name_vi=name_vi)

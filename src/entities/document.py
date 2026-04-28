@@ -15,4 +15,4 @@ class Document(BaseEntity):
     metadata = BinaryJSONField(null=True)  # JSON string for additional metadata
 
     class Meta:
-        collection_name = "documents"
+        table_name = "documents"

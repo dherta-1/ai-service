@@ -11,4 +11,4 @@ class FileMetadata(BaseEntity):
     object_key = CharField(max_length=255, null=True)
 
     class Meta:
-        collection_name = "file_metadata"
+        table_name = "file_metadata"

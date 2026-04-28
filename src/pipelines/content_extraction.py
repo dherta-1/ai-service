@@ -9,6 +9,7 @@ from PIL import Image
 
 from src.ocr.dtos import OCRImageRequest
 from src.shared.base.base_pipeline import BasePipeline
+from src.shared.helpers.debug_export import export_pipeline_debug
 
 logger = logging.getLogger(__name__)
 
@@ -72,6 +73,17 @@ class ContentExtractionPipeline(
             "on_image_saved"
         )
 
+        export_pipeline_debug(
+            "content_extraction",
+            "input",
+            {
+                "image_path": str(image_path),
+                "page_index": page_index,
+                "file_id": file_id,
+            },
+            page_index + 1,
+        )
+
         page_items = await self._extract_page_with_ocr(image_path, page_index)
 
         image_file_ids: dict[str, str] = {}
@@ -106,11 +118,25 @@ class ContentExtractionPipeline(
                     image_file_ids[key] = fm_id
 
         markdown_content = self._generate_page_markdown(page_items)
-        return {
+        result = {
             "page_number": page_index + 1,
             "markdown_content": markdown_content,
             "image_file_ids": image_file_ids,
         }
+
+        export_pipeline_debug(
+            "content_extraction",
+            "output",
+            {
+                "page_number": result["page_number"],
+                "markdown_length": len(markdown_content),
+                "image_count": len(image_file_ids),
+                "markdown_preview": markdown_content[:500],
+            },
+            page_index + 1,
+        )
+
+        return result
 
     async def _extract_page_with_ocr(
         self, image_path: Path, page_index: int

@@ -25,16 +25,20 @@ from src.entities.question import Question
 from src.pipelines.content_extraction import ContentExtractionPipeline
 from src.pipelines.content_validation import ContentValidationPipeline
 from src.pipelines.page_head_overlap import PageHeadOverlapPipeline
-from src.pipelines.question_embedding import QuestionEmbeddingPipeline
 from src.pipelines.question_extraction import QuestionExtractionPipeline
 from src.prompts.content_validation_prompt import content_validation_prompt
-from src.prompts.question_extraction_prompt import question_extraction_prompt
+from src.repos.answer_repo import AnswerRepository
 from src.repos.document_repo import DocumentRepository
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.repos.page_repo import PageRepository
+from src.repos.question_group_repo import QuestionGroupRepository
 from src.repos.question_repo import QuestionRepository
 from src.repos.subject_repo import SubjectRepository
+from src.repos.task_repo import TaskRepository
 from src.repos.topic_repo import TopicRepository
+from src.services.core.question_embedding_service import QuestionEmbeddingService
+from src.services.core.question_group_service import QuestionGroupService
+from src.services.core.question_persistence_service import QuestionPersistenceService
 from src.shared.constants.general import Status
 
 logger = logging.getLogger(__name__)
@@ -71,8 +75,7 @@ class DocumentProcessingService:
             overlap_char_count=page_overlap_char_count
         )
         self.question_pipeline = QuestionExtractionPipeline(
-            llm_client=self.llm_client,
-            prompt_template=question_extraction_prompt,
+            llm_client=self.llm_client
         )
         self.embedding_pipeline = QuestionEmbeddingPipeline(
             llm_client=self.llm_client,

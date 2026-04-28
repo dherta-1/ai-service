@@ -41,11 +41,35 @@ class S3Client:
         key: str,
         ExtraArgs: Optional[Dict[str, Any]] = None,
     ) -> None:
+        """Upload file from local path to S3."""
         try:
             self.client.upload_file(file_path, bucket, key, ExtraArgs=ExtraArgs or {})
             logger.info("Uploaded file %s to s3://%s/%s", file_path, bucket, key)
         except (BotoCoreError, ClientError) as e:
             logger.error("S3 upload_file failed: %s", e)
+            raise
+
+    def upload_file_bytes(
+        self,
+        file_content: bytes,
+        bucket: str,
+        key: str,
+        content_type: Optional[str] = None,
+    ) -> None:
+        """Upload file from bytes content to S3."""
+        try:
+            extra_args = {}
+            if content_type:
+                extra_args["ContentType"] = content_type
+            self.client.put_object(
+                Bucket=bucket,
+                Key=key,
+                Body=file_content,
+                **extra_args,
+            )
+            logger.info("Uploaded %d bytes to s3://%s/%s", len(file_content), bucket, key)
+        except (BotoCoreError, ClientError) as e:
+            logger.error("S3 upload_file_bytes failed: %s", e)
             raise
 
     def download_file(self, bucket: str, key: str, target_path: str) -> None:

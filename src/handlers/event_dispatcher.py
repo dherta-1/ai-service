@@ -100,18 +100,39 @@ def get_event_dispatcher() -> EventDispatcher:
 
 
 def initialize_event_handlers() -> None:
-    """Initialize all event handlers"""
-    # from src.handlers.project_events import (
-    #     ProjectCreatedEventHandler,
-    #     ProjectUpdatedEventHandler,
-    #     ProjectDeletedEventHandler,
-    # )
+    """Initialize all event handlers (default profile = 'all')."""
+    initialize_event_handlers_by_profile("all")
+
+
+def initialize_event_handlers_by_profile(profile: str = "all") -> None:
+    """Initialize handlers by worker profile.
+
+    Profiles:
+        - all:                  full worker — all handlers
+        - document-extraction:  OCR+validate → emit question_extraction_requested per page
+        - question-extraction:  extract+embed+group+persist → mark document COMPLETED inline
+    """
+    from src.handlers.document_extraction_handler import DocumentExtractionHandler
+    from src.handlers.question_extraction_handler import QuestionExtractionHandler
 
     dispatcher = get_event_dispatcher()
 
-    # Register project event handlers
-    # dispatcher.register_handler(ProjectCreatedEventHandler())
-    # dispatcher.register_handler(ProjectUpdatedEventHandler())
-    # dispatcher.register_handler(ProjectDeletedEventHandler())
+    # Reset registered handlers for a clean profile load
+    dispatcher.handlers = {}
+    dispatcher.wildcard_handlers = []
 
-    logger.info(f"Event handlers initialized - Topics: {dispatcher.get_topics()}")
+    profile = (profile or "all").lower()
+    if profile not in {"all", "document-extraction", "question-extraction"}:
+        raise ValueError(f"Unsupported handler profile: {profile}")
+
+    if profile in {"all", "document-extraction"}:
+        dispatcher.register_handler(DocumentExtractionHandler())
+
+    if profile in {"all", "question-extraction"}:
+        dispatcher.register_handler(QuestionExtractionHandler())
+
+    logger.info(
+        "Event handlers initialized for profile '%s' — Topics: %s",
+        profile,
+        dispatcher.get_topics(),
+    )

@@ -14,3 +14,5 @@ output
 huggingface
 *.pt
 tmp
+.claude
+debug

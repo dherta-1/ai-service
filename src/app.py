@@ -1,6 +1,15 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from src.repos.document_repo import DocumentRepository
+from src.repos.file_metadata_repo import FileMetadataRepository
+from src.repos.page_repo import PageRepository
+from src.repos.question_repo import QuestionRepository
+from src.repos.question_group_repo import QuestionGroupRepository
+from src.repos.answer_repo import AnswerRepository
+from src.repos.subject_repo import SubjectRepository
+from src.repos.topic_repo import TopicRepository
+from src.repos.task_repo import TaskRepository
 from src.settings import get_settings
 from src.container import get_di_container, initialize_di_container
 from src.lib.db.peewee import get_database
@@ -8,6 +17,8 @@ from src.lib.db.migration_manager import get_migration_manager
 from src.lib.db.seed_manager import get_seed_manager
 from src.lib.cachedb.redis import get_cache_client
 from src.lib.s3_client import get_s3_client
+from src.lib.event_bus.kafka.producer import KafkaProducerImpl
+from src.lib.event_bus.kafka.consumer import KafkaConsumerImpl
 from src.llm.registry import get_llm_registry, register_llm_registry
 from src.llm.base import LLMConfig
 from src.ocr.registry import register_ocr_registry
@@ -19,12 +30,20 @@ from src.routes.page_route import router as page_router
 from src.routes.question_route import router as question_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
-from src.services.document_processing_service import DocumentProcessingService
+
+# from src.services.document_processing_service import DocumentProcessingService
+from src.services.document_service import DocumentService
+from src.services.question_service import QuestionService
+from src.services.page_service import PageService
+from src.services.core.document_extraction_service import DocumentExtractionService
+from src.services.core.question_extraction_service import QuestionExtractionService
 import logging
 from src.entities.document import Document
 from src.entities.file_metadata import FileMetadata
 from src.entities.page import Page
 from src.entities.question import Question
+from src.entities.question_group import QuestionGroup
+from src.entities.answer import Answer
 from src.entities.subject import Subject
 from src.entities.task import Task
 from src.entities.topic import Topic
@@ -49,7 +68,8 @@ def setup_di_container() -> None:
     container.register_singleton("s3_client", s3_client)
 
     # ensure S3 bucket if configured
-    s3_bucket = settings.aws_s3_bucket if hasattr(settings, "aws_s3_bucket") else None
+    s3_bucket = getattr(settings, "aws_s3_bucket", None)
+    container.register_singleton("s3_bucket", s3_bucket)
     if s3_bucket:
         try:
             s3_client.ensure_bucket(s3_bucket, region_name=settings.aws_region)
@@ -79,32 +99,57 @@ def setup_di_container() -> None:
         container.register_singleton("llm_client", None)
 
     # Register OCR registry in DI and default OCR client (if configured)
-    ocr_registry = register_ocr_registry(container)
-    ocr_conf = OCRConfig(
-        provider=settings.ocr_provider,
-        lang=settings.ocr_lang,
-        use_gpu=settings.ocr_use_gpu,
-    )
+    # ocr_registry = register_ocr_registry(container)
+    # ocr_conf = OCRConfig(
+    #     provider=settings.ocr_provider,
+    #     lang=settings.ocr_lang,
+    #     use_gpu=settings.ocr_use_gpu,
+    # )
 
-    try:
-        ocr_client = ocr_registry.create_client(ocr_conf, client_id="default_ocr")
-        container.register_singleton("ocr_client", ocr_client)
-    except Exception as e:
-        logger.warning("Could not create OCR client at startup: %s", e)
+    # try:
+    #     ocr_client = ocr_registry.create_client(ocr_conf, client_id="default_ocr")
+    #     container.register_singleton("ocr_client", ocr_client)
+    # except Exception as e:
+    #     logger.warning("Could not create OCR client at startup: %s", e)
+
+    # Register Kafka producer and consumer
+    kafka_producer = KafkaProducerImpl(topic="document_extraction_requested")
+    container.register_singleton("kafka_producer", kafka_producer)
 
     # Register document processing service with DI dependencies
+    # container.register_type(
+    #     DocumentProcessingService,
+    #     lambda: DocumentProcessingService(
+    #         ocr_client=container.get("ocr_client"),
+    #         s3_client=container.get("s3_client"),
+    #         llm_client=container.get("llm_client"),
+    #         s3_bucket=s3_bucket,
+    #     ),
+    #     singleton=False,
+    # )
+
+    # Register core services as singletons
+    container.register_singleton("document_service", DocumentService())
+    container.register_singleton("question_service", QuestionService())
+    container.register_singleton("page_service", PageService())
+
+    # Register core extraction services as factories (non-singleton)
     container.register_type(
-        DocumentProcessingService,
-        lambda: DocumentProcessingService(
+        DocumentExtractionService,
+        lambda: DocumentExtractionService(
+            llm_client=container.get("llm_client"),
             ocr_client=container.get("ocr_client"),
             s3_client=container.get("s3_client"),
-            llm_client=container.get("llm_client"),
             s3_bucket=s3_bucket,
         ),
         singleton=False,
     )
 
-    # Register services with their dependencies
+    container.register_type(
+        QuestionExtractionService,
+        lambda: QuestionExtractionService(llm_client=container.get("llm_client")),
+        singleton=False,
+    )
 
     logger.info("DI container initialized")
 
@@ -116,7 +161,17 @@ def bind_models_to_database() -> None:
         db_instance = db_manager.get_db()
 
         # List of all models to bind
-        models = [Document, FileMetadata, Page, Question, Subject, Task, Topic]
+        models = [
+            Document,
+            FileMetadata,
+            Page,
+            Question,
+            QuestionGroup,
+            Answer,
+            Subject,
+            Task,
+            Topic,
+        ]
 
         # Bind each model to the database
         for model in models:
