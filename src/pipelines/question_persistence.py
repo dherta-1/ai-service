@@ -22,6 +22,7 @@ from src.repos.topic_repo import TopicRepository
 from src.shared.base.base_pipeline import BasePipeline
 from src.shared.constants.general import Status
 from src.shared.constants.question import QuestionType
+from src.shared.helpers.debug_export import export_pipeline_debug
 from src.shared.helpers.task_logger import TaskLogger
 
 logger = logging.getLogger(__name__)
@@ -89,6 +90,17 @@ class QuestionPersistencePipeline(BasePipeline):
         is_final_page = payload["is_final_page"]
         questions = payload.get("questions", [])
 
+        export_pipeline_debug(
+            "question_persistence",
+            "input",
+            {
+                "page_number": page_number,
+                "questions_count": len(questions),
+                "is_final_page": is_final_page,
+            },
+            page_number,
+        )
+
         start_ms = int(time.time() * 1000)
         result = {"persisted_count": 0, "failed_count": 0, "errors": []}
 
@@ -108,6 +120,13 @@ class QuestionPersistencePipeline(BasePipeline):
             questions_count=result["persisted_count"],
             elapsed_ms=elapsed_ms,
             is_final_page=is_final_page,
+        )
+
+        export_pipeline_debug(
+            "question_persistence",
+            "output",
+            {**result, "elapsed_ms": elapsed_ms},
+            page_number,
         )
 
         return result
@@ -136,12 +155,13 @@ class QuestionPersistencePipeline(BasePipeline):
             )
 
         # Create or get topic record if topic_code is provided
-        # This ensures topic exists in Topic table for reference
+        # This ensures topic exists in Topic table for reference with subject_code link
         if topic_code:
             self._topic_repo.get_or_create(
                 code=topic_code,
                 name=topic_code.replace("_", " ").title(),
                 name_vi=topic_vi,
+                subject_code=subject_code,  # Link topic to its parent subject
             )
 
         main_q = Question.create(

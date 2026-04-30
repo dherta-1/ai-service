@@ -23,9 +23,12 @@ class ExtractedQuestion(TypedDict):
     question_type: str
     difficulty: str | None
     subject: str | None
+    subject_vi: str | None
     topic: str | None
+    topic_vi: str | None
     answers: list | None
     image_list: list[str]
+    sub_questions: list | None
 
 
 class OverlapContent(TypedDict):
@@ -170,6 +173,10 @@ class QuestionExtractionPipeline(
                             "text": q.get("question_text", "")[:100],
                             "type": q.get("question_type"),
                             "difficulty": q.get("difficulty"),
+                            "subject": q.get("subject"),
+                            "subject_vi": q.get("subject_vi"),
+                            "topic": q.get("topic"),
+                            "topic_vi": q.get("topic_vi"),
                         }
                         for q in questions
                     ],
@@ -407,7 +414,9 @@ class QuestionExtractionPipeline(
             question_type = cls._normalize_question_type(item.get("question_type"))
             difficulty = cls._normalize_difficulty(item.get("difficulty"))
             subject = cls._normalize_subject(item.get("subject"))
+            subject_vi = cls._optional_str(item.get("subject_vi"))
             topic = cls._optional_str(item.get("topic"))
+            topic_vi = cls._optional_str(item.get("topic_vi"))
             answers = cls._normalize_answers(item.get("answers"), question_type)
             sub_questions = cls._normalize_sub_questions(item.get("sub_questions", []))
             image_list = cls._normalize_image_list(item.get("image_list"))
@@ -418,7 +427,9 @@ class QuestionExtractionPipeline(
                     "question_type": question_type,
                     "difficulty": difficulty,
                     "subject": subject,
+                    "subject_vi": subject_vi,
                     "topic": topic,
+                    "topic_vi": topic_vi,
                     "answers": answers,
                     "image_list": image_list,
                     "sub_questions": sub_questions,

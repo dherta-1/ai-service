@@ -6,6 +6,9 @@ class Topic(BaseEntity):
 
     name = CharField(max_length=255)
     name_vi = CharField(max_length=255, null=True)  # Vietnamese name for the topic
+    subject_code = CharField(
+        max_length=50, index=True, null=True
+    )  # Code of the parent subject (e.g., "math")
     code = CharField(
         max_length=50, unique=True, index=True
     )  # Unique code for the topic (e.g., "algebra", "calculus")

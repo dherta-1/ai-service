@@ -34,7 +34,7 @@ OUTPUT FORMAT EXAMPLE:
           "order": 2,
           "sub_question_text": "Tính $f'(x)$ và xác định các điểm cực trị của hàm số.",
           "question_type": "short_answer",
-          "answers": [{{"value": "$f'(x) = -2\\sin x + 1$; Điểm cực trị tại $x = \\arcsin(\\frac{{1}}{{2}}) + 2k\\pi$ và $x = \\pi - \\arcsin(\\frac{{1}}{{2}}) + 2k\\pi$, với $k \\in \\mathbb{Z}$", "is_correct": true }}],
+          "answers": [{{"value": "$f'(x) = -2\\sin x + 1$; Điểm cực trị tại $x = \\arcsin(\\frac{{1}}{{2}}) + 2k\\pi$ và $x = \\pi - \\arcsin(\\frac{{1}}{{2}}) + 2k\\pi$, với $k \\in \\mathbb{{Z}}$", "is_correct": true }}],
           "image_list": []
         }}
       ]
@@ -74,8 +74,8 @@ STRICT RULES:
 5. question_text: make sure to remove leading question numbers or letters (e.g., "Câu 1.", "a)", etc.) from the question_text. For sub-questions, also strip leading letters/numbers from sub_question_text. For any tables that are in html, still keep it and normalize for correctness (e.g., fix broken tags, ensure it's valid html)
 6. question_type: MUST be one of: {question_types}.
 7. difficulty: MUST be one of: {difficulty_levels}.
-8. subject: MUST be one of: {subjects}.
-9. topic: must be in snake_case and as specific as possible (e.g., "calculus", "algebra", "physics_mechanics", etc.)
+8. subject: MUST be one of: {subjects}. Also return its vietnamese name in subject_vi. If unknown, set subject_vi to null.
+9. topic: must be in snake_case and as specific as possible (e.g., "calculus", "algebra", "physics_mechanics", etc.). Also return its vietnamese name in topic_vi. If unknown, set topic_vi to null.
 10. answers:
     - For multiple_choice, selection, true_false: return JSON array of {{"value": "...", "is_correct": true|false}}. Strip leading option letters (A., B., etc.). Mark exactly ONE answer as is_correct: true.
     - For short_answer, essay: return JSON array with ONE item {{"value": "...", "is_correct": true}} representing the correct answer, or null if unknown.

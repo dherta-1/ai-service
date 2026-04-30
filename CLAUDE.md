@@ -151,12 +151,13 @@ explaination: TEXT (nullable)  # Note: keeping spec's spelling
 **Three-Step Process**:
 1. **Create Subject/Topic Records**: For each question, ensure subject and topic codes exist in Subject/Topic tables
    - Uses `SubjectRepository.get_or_create(code, name, name_vi)` 
-   - Uses `TopicRepository.get_or_create(code, name, name_vi)`
+   - Uses `TopicRepository.get_or_create(code, name, name_vi, subject_code)` 
    - Creates records with Vietnamese translations if provided
+   - **Topics are linked to their parent subject via subject_code field**
 2. **Persist Questions**: Save Question records with subject/topic codes as string references
 3. **Update Task**: Increment processed pages count and update task status
 
-**Important**: Subject and topic are stored as string codes in Question table, but corresponding records are created in Subject/Topic tables with Vietnamese translations.
+**Important**: Subject and topic are stored as string codes in Question table, but corresponding records are created in Subject/Topic tables with Vietnamese translations. Topics maintain a reference to their parent subject via subject_code.
 
 ### Debug Export (Development)
 When `log_results = true`, all pipelines export debug files to `/debug/<pipeline_name>/`:
