@@ -26,6 +26,9 @@ dependencies = [
     "paddleocr[all]>=3.2.0",
     "ultralytics>=8.3.0",
     "pgvector>=0.4.2",
+    "passlib[bcrypt]>=1.7.4",
+    "python-jose[cryptography]>=3.3.0",
+    "pydantic[email]>=2.4.2",
 ]
 
 [project.optional-dependencies]

@@ -1,7 +1,10 @@
-"""Variant Exam Generation Service.
+"""Variant Exam Generation Service - Core Generation Logic.
 
-Handles:
-  - generate_versions — create N version ExamInstances from an accepted base exam
+Pure generation logic for variant exam instances.
+All lifecycle operations are in ExamService.
+
+Exports:
+  - generate_versions — core variant generation algorithm
 """
 
 from __future__ import annotations
@@ -20,20 +23,21 @@ from src.repos.exam_instance_repo import ExamInstanceRepository
 from src.repos.exam_test_section_repo import ExamTestSectionRepository
 from src.repos.question_exam_test_repo import QuestionExamTestRepository
 from src.repos.question_repo import QuestionRepository
-from src.services.core.base_exam_generation_service import BaseExamGenerationService
 from src.shared.constants.exam import ExamInstanceStatus
+from src.shared.helpers.exam_generation_helpers import generate_exam_code, increment_exam_counts
 
 logger = logging.getLogger(__name__)
 
 
 class VariantExamGenerationService:
-    """Generate version (is_base=False) exam instances from an accepted base exam.
+    """Variant exam generation - pure algorithmic core.
 
+    Focuses on generating exam variants from an accepted base exam.
+    All lifecycle and template operations are in ExamService.
     Uses seed-based RNG so each version is reproducible given its seed.
     """
 
     def __init__(self, llm_client=None):
-        self._base_service = BaseExamGenerationService(llm_client=llm_client)
         self._instance_repo = ExamInstanceRepository()
         self._section_repo = ExamTestSectionRepository()
         self._qet_repo = QuestionExamTestRepository()
@@ -86,9 +90,10 @@ class VariantExamGenerationService:
         version = self._instance_repo.create(
             exam_template=base_exam.exam_template_id,
             parent_exam_instance=base_exam.id,
-            exam_test_code=BaseExamGenerationService._generate_code(),
+            exam_test_code=generate_exam_code(),
             is_base=False,
             status=ExamInstanceStatus.PENDING,
+            created_by_id=base_exam.created_by_id,
         )
 
         all_group_ids: List[UUID] = []
@@ -129,7 +134,7 @@ class VariantExamGenerationService:
                 all_group_ids.append(group_id)
                 all_question_ids.append(variant.id)
 
-        self._base_service._increment_counts(all_group_ids, all_question_ids)
+        increment_exam_counts(all_group_ids, all_question_ids)
         return version
 
     def _pick_variant_for_group(

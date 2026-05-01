@@ -76,6 +76,21 @@ class Settings(BaseSettings):
         default="Authorization,Content-Type,Accept", env="CORS_ALLOW_HEADERS"
     )
 
+    # JWT
+    jwt_secret_key: str = Field(default="change-me-in-production", env="JWT_SECRET_KEY")
+    jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
+    access_token_expire_minutes: int = Field(default=15, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
+
+    # Email / SMTP
+    smtp_host: str = Field(default="smtp.gmail.com", env="SMTP_HOST")
+    smtp_port: int = Field(default=587, env="SMTP_PORT")
+    smtp_username: Optional[str] = Field(default=None, env="SMTP_USERNAME")
+    smtp_password: Optional[str] = Field(default=None, env="SMTP_PASSWORD")
+    smtp_from_email: str = Field(default="noreply@example.com", env="SMTP_FROM_EMAIL")
+    smtp_from_name: str = Field(default="AI Service", env="SMTP_FROM_NAME")
+    frontend_url: str = Field(default="http://localhost:3000", env="FRONTEND_URL")
+
     class Config:
         env_file = ".env"
         case_sensitive = False

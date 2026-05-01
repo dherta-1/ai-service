@@ -52,6 +52,7 @@ class QuestionExtractionService:
         page_id: UUID,
         task_id: UUID,
         is_final_page: bool,
+        uploaded_by_id: UUID = None,
     ) -> Dict[str, Any]:
         """Extract, parse answers, embed, group, and persist questions for one page.
 
@@ -59,6 +60,7 @@ class QuestionExtractionService:
             page_id: The Page record to process.
             task_id: The Task tracking this document extraction.
             is_final_page: True when this is the last page of the document.
+            uploaded_by_id: The user ID who uploaded the document.
 
         Returns:
             dict with persisted_count, failed_count, errors.
@@ -111,7 +113,10 @@ class QuestionExtractionService:
         questions = embed_result.get("questions", [])
 
         # Pipeline 4: Group
-        group_result = await self._grouping_pipeline.process({"questions": questions})
+        group_result = await self._grouping_pipeline.process({
+            "questions": questions,
+            "uploaded_by_id": uploaded_by_id,
+        })
         grouped_questions = group_result.get("grouped_questions", [])
 
         # Pipeline 5: Persist

@@ -409,59 +409,392 @@ from_user = ForeignKeyField(User, column_name="from_user_id", backref="question_
 
 ---
 
-## 6. Scoped Logic Refactoring
+## 6. Scoped Logic Refactoring (Comprehensive User Data Isolation)
+
+### Overview of Scope Changes
+
+All mutable and retrieval operations must be scoped by the current user's identity:
+- **Non-admin users**: can only see/modify their own documents, templates, exams, and question groups created during their document processing
+- **Admin users**: can see/modify all data
+- **Public/unauthenticated endpoints**: only allowed for auth routes
 
 ### Repository changes
 
-Add `get_all_paginated_scoped(page, page_size, user_id=None)` to:
+Add `get_all_paginated_scoped(page, page_size, user_id=None)` and `find_by_metadata_scoped(...)` to:
 
-- **`src/repos/document_repo.py`** — filter `Document.uploaded_by == user_id`
-- **`src/repos/exam_template_repo.py`** — filter `ExamTemplate.created_by == user_id`
-- **`src/repos/exam_instance_repo.py`** — filter `ExamInstance.created_by == user_id`
-- **`src/repos/question_group_repo.py`** — filter `QuestionGroup.from_user == user_id`
-
-Pattern:
+**`src/repos/document_repo.py`**:
 ```python
 def get_all_paginated_scoped(self, page, page_size, user_id=None):
     offset = (page - 1) * page_size
-    query = Entity.select()
+    query = Document.select()
     if user_id is not None:
-        query = query.where(Entity.owner_field == user_id)
+        query = query.where(Document.uploaded_by == user_id)
     return list(query.offset(offset).limit(page_size)), query.count()
+
+def get_by_id_scoped(self, doc_id: UUID, user_id=None) -> Optional[Document]:
+    query = Document.select().where(Document.id == doc_id)
+    if user_id is not None:
+        query = query.where(Document.uploaded_by == user_id)
+    return query.get_or_none()
+```
+
+**`src/repos/exam_template_repo.py`**:
+```python
+def get_all_paginated_scoped(self, page, page_size, user_id=None):
+    offset = (page - 1) * page_size
+    query = ExamTemplate.select()
+    if user_id is not None:
+        query = query.where(ExamTemplate.created_by == user_id)
+    return list(query.offset(offset).limit(page_size)), query.count()
+
+def get_by_id_scoped(self, template_id: UUID, user_id=None) -> Optional[ExamTemplate]:
+    query = ExamTemplate.select().where(ExamTemplate.id == template_id)
+    if user_id is not None:
+        query = query.where(ExamTemplate.created_by == user_id)
+    return query.get_or_none()
+```
+
+**`src/repos/exam_instance_repo.py`**:
+```python
+def get_all_paginated_scoped(self, page, page_size, user_id=None):
+    offset = (page - 1) * page_size
+    query = ExamInstance.select()
+    if user_id is not None:
+        query = query.where(ExamInstance.created_by == user_id)
+    return list(query.offset(offset).limit(page_size)), query.count()
+
+def get_by_id_scoped(self, exam_id: UUID, user_id=None) -> Optional[ExamInstance]:
+    query = ExamInstance.select().where(ExamInstance.id == exam_id)
+    if user_id is not None:
+        query = query.where(ExamInstance.created_by == user_id)
+    return query.get_or_none()
+
+def get_versions_of_scoped(self, base_exam_id: UUID, user_id=None) -> List[ExamInstance]:
+    query = ExamInstance.select().where(ExamInstance.parent_exam_instance == base_exam_id)
+    if user_id is not None:
+        # Versions inherit scope from base exam's created_by
+        base = ExamInstance.get_or_none(ExamInstance.id == base_exam_id)
+        if not base or (user_id is not None and base.created_by != user_id):
+            return []
+    return list(query)
+```
+
+**`src/repos/question_group_repo.py`**:
+```python
+def find_by_metadata_scoped(self, subject: str, topic: str, difficulty: str, user_id=None) -> List[QuestionGroup]:
+    query = QuestionGroup.select().where(
+        (QuestionGroup.subject == subject) &
+        (QuestionGroup.topic == topic) &
+        (QuestionGroup.difficulty == difficulty)
+    )
+    if user_id is not None:
+        query = query.where(QuestionGroup.from_user == user_id)
+    return list(query)
+
+def get_or_create_scoped(self, subject: str, topic: str, difficulty: str, vector_embedding=None, user_id=None) -> QuestionGroup:
+    # For non-admin users, only reuse question groups created by the same user
+    if user_id is not None:
+        group = self.find_by_metadata_scoped(subject, topic, difficulty, user_id=user_id)
+        if group and vector_embedding:
+            # Find best match by cosine similarity
+            best_match = max(group, key=lambda g: cosine_sim(g.vector_embedding, vector_embedding))
+            if cosine_sim(best_match.vector_embedding, vector_embedding) >= 0.75:
+                return best_match
+        # No match found; create new group for this user
+        return self.create(subject=subject, topic=topic, difficulty=difficulty,
+                          vector_embedding=vector_embedding, from_user=user_id)
+    else:
+        # Admin/global scope — can reuse any group across users
+        return super().get_or_create(subject=subject, topic=topic, difficulty=difficulty)
 ```
 
 ### Service changes
 
-Update `get_all_paginated` in each service:
+**`src/services/document_service.py`**:
 ```python
+async def upload_and_create_metadata(self, file: UploadFile, s3_prefix: str = "documents", user_id=None) -> Document:
+    # ... existing upload logic ...
+    document = self.repo.create(
+        file_id=file_id,
+        name=file.filename,
+        s3_path=s3_path,
+        uploaded_by=user_id  # NEW: store uploader
+    )
+    return document
+
 def get_all_paginated(self, page=1, page_size=10, user_id=None, is_admin=False):
     scoped_user_id = None if is_admin else user_id
     return self.repo.get_all_paginated_scoped(page, page_size, user_id=scoped_user_id)
+
+def get_by_id(self, doc_id: UUID, user_id=None, is_admin=False) -> Optional[Document]:
+    scoped_user_id = None if is_admin else user_id
+    return self.repo.get_by_id_scoped(doc_id, user_id=scoped_user_id)
 ```
 
-Update creation methods to store the caller's identity:
-- `document_service.upload_and_create_metadata(...)` → pass `uploaded_by=user_id`
-- `base_exam_generation_service.save_template(...)` → pass `created_by=user_id`
-- `base_exam_generation_service._create_exam_instance(...)` → pass `created_by=user_id`
+**`src/services/core/document_extraction_service.py`**:
+- No change needed — operates on documents owned by the current extraction task
+
+**`src/services/core/question_extraction_service.py`**:
+- Pass `user_id` from document context to `question_grouping_pipeline.process()` payload
+- Update pipeline inputs: `{"..., "user_id": user_id_from_document}"` 
+
+**`src/services/core/base_exam_generation_service.py`**:
+```python
+def save_template(self, name: str, subject: str, generation_config=None, template_id=None, user_id=None) -> ExamTemplate:
+    if template_id:
+        template = self._template_repo.get_by_id_scoped(template_id, user_id=user_id)
+        if not template:
+            raise NotFoundException("Template not found")
+        # ... update existing ...
+    else:
+        return self._template_repo.create(
+            name=name,
+            subject=subject,
+            generation_config=config_json,
+            created_by=user_id  # NEW: store creator
+        )
+
+def generate_base_exam(self, sections, template_id=None, subject=None, user_id=None) -> ExamInstance:
+    # Load template (scoped to user if not admin)
+    if template_id:
+        template = self._template_repo.get_by_id_scoped(template_id, user_id=user_id)
+        if not template:
+            raise NotFoundException("Template not found")
+    
+    # ... generate exam ...
+    exam = self._create_exam_instance(
+        template_id=template_id,
+        sections=final_sections,
+        is_base=True,
+        created_by=user_id  # NEW: store creator
+    )
+    return exam
+
+def _create_exam_instance(self, ..., created_by=None) -> ExamInstance:
+    exam = self._instance_repo.create(
+        ...,
+        created_by=created_by  # NEW: persist creator
+    )
+    # ... rest of logic ...
+
+def _retrieve_candidate_groups(self, section: SectionConfig, user_id=None) -> List[QuestionGroup]:
+    # CRITICAL: Filter question groups by user_id (scoped questions only)
+    candidates = self._group_repo.find_by_metadata_scoped(
+        section.subject, section.topic, section.difficulty,
+        user_id=user_id  # SCOPED: only user's question groups
+    )
+    
+    if not candidates:
+        # Try fallback difficulties, still scoped
+        for fallback_diff in _DIFFICULTY_FALLBACKS.get(section.difficulty, []):
+            candidates = self._group_repo.find_by_metadata_scoped(
+                section.subject, section.topic, fallback_diff,
+                user_id=user_id  # SCOPED
+            )
+            if candidates:
+                break
+    
+    # ... rest of filtering logic ...
+```
+
+**`src/services/core/variant_exam_generation_service.py`**:
+```python
+def generate_versions(self, base_exam_id: UUID, num_versions: int, user_id=None) -> List[ExamInstance]:
+    # Load base exam (scoped to user if not admin)
+    base = self._instance_repo.get_by_id_scoped(base_exam_id, user_id=user_id)
+    if not base:
+        raise NotFoundException("Exam not found")
+    if base.status != ExamInstanceStatus.ACCEPTED:
+        raise BadRequestException("Base exam must be in ACCEPTED status")
+    
+    # ... generate versions ...
+```
+
+**`src/pipelines/question_grouping.py`**:
+```python
+async def process(self, payload: dict) -> dict:
+    # Extract user_id from payload (passed from question_extraction_service)
+    user_id = payload.get("user_id")
+    
+    questions = payload.get("questions", [])
+    threshold = payload.get("similarity_threshold", 0.75)
+    
+    grouped_questions = []
+    for question in questions:
+        # Use get_or_create_scoped to respect user boundaries
+        group = self._group_repo.get_or_create_scoped(
+            subject=question["subject"],
+            topic=question["topic"],
+            difficulty=question["difficulty"],
+            vector_embedding=question.get("vector"),
+            user_id=user_id  # CRITICAL: scope group creation to user
+        )
+        grouped_questions.append({
+            **question,
+            "group_id": str(group.id)
+        })
+    
+    return {"grouped_questions": grouped_questions}
+```
+
+**`src/services/core/question_extraction_service.py`**:
+```python
+async def process_page(self, page_id: UUID, document_id: UUID) -> TaskProgress:
+    # Fetch document to get user_id (uploader)
+    document = self._document_repo.get_by_id(document_id)
+    user_id = document.uploaded_by if document else None
+    
+    # Pass user_id to grouping pipeline
+    grouping_payload = {
+        ...,
+        "user_id": user_id  # NEW: pass to pipeline
+    }
+    grouped_questions = await self._grouping_pipeline.process(grouping_payload)
+    
+    # ... rest of pipeline chain ...
+```
 
 ### Route changes
 
-Inject `get_optional_user` into list and create endpoints:
-
+**`src/routes/document_route.py`**:
 ```python
-# Example: document_route.py list_documents
+@router.post("/upload", status_code=status.HTTP_201_CREATED)
+async def upload_document(
+    file: UploadFile = File(...),
+    s3_prefix: str = Form(default="documents"),
+    current_user: User = Depends(get_current_user),  # REQUIRE auth
+    service: DocumentService = Depends(get_document_service),
+):
+    # ... validation ...
+    document = await service.upload_and_create_metadata(
+        file=file,
+        s3_prefix=s3_prefix,
+        user_id=current_user.id  # PERSIST uploader
+    )
+
+@router.get("")
 async def list_documents(
-    ...,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     current_user: Optional[User] = Depends(get_optional_user),
+    service: DocumentService = Depends(get_document_service),
 ):
     user_id = current_user.id if current_user else None
     is_admin = (current_user.role == "admin") if current_user else False
-    documents, total = service.get_all_paginated(page, page_size, user_id=user_id, is_admin=is_admin)
+    documents, total = service.get_all_paginated(
+        page, page_size,
+        user_id=user_id,
+        is_admin=is_admin
+    )
+
+@router.get("/{document_id}")
+async def get_document(
+    document_id: UUID,
+    current_user: Optional[User] = Depends(get_optional_user),
+    service: DocumentService = Depends(get_document_service),
+):
+    user_id = current_user.id if current_user else None
+    is_admin = (current_user.role == "admin") if current_user else False
+    document = service.get_by_id(document_id, user_id=user_id, is_admin=is_admin)
+    if not document:
+        raise NotFoundException("Document not found or access denied")
+
+@router.get("/{document_id}/questions")
+async def get_document_questions(
+    document_id: UUID,
+    current_user: Optional[User] = Depends(get_optional_user),
+    ...,
+):
+    # Verify user owns the document or is admin
+    document = doc_service.get_by_id(document_id, user_id=current_user.id if current_user else None, is_admin=...)
+    if not document:
+        raise NotFoundException("Document not found")
 ```
 
-Apply same pattern to:
-- `src/routes/document_route.py` — `list_documents`, `upload_document`
-- `src/routes/exam_route.py` — `list_templates`, `save_template`, `generate_base_exam`
+**`src/routes/exam_route.py`**:
+```python
+@router.post("/templates")
+async def save_template(
+    body: SaveExamTemplateRequest,
+    current_user: User = Depends(get_current_user),  # REQUIRE auth
+    service: BaseExamGenerationService = Depends(get_base_service),
+):
+    template = service.save_template(
+        ...,
+        user_id=current_user.id  # PERSIST creator
+    )
+
+@router.get("/templates")
+async def list_templates(
+    subject: Optional[str] = Query(None),
+    current_user: Optional[User] = Depends(get_optional_user),
+    service: BaseExamGenerationService = Depends(get_base_service),
+):
+    user_id = current_user.id if current_user else None
+    is_admin = (current_user.role == "admin") if current_user else False
+    templates = service.list_templates(subject=subject, user_id=user_id, is_admin=is_admin)
+
+@router.post("/generate-base")
+async def generate_base_exam(
+    body: GenerateBaseExamRequest,
+    current_user: User = Depends(get_current_user),  # REQUIRE auth
+    service: BaseExamGenerationService = Depends(get_base_service),
+):
+    exam = service.generate_base_exam(
+        ...,
+        user_id=current_user.id  # PERSIST creator, limit group scope
+    )
+
+@router.post("/generate-versions")
+async def generate_versions(
+    body: GenerateVersionsRequest,
+    current_user: User = Depends(get_current_user),  # REQUIRE auth
+    service: VariantExamGenerationService = Depends(get_variant_service),
+):
+    versions = service.generate_versions(
+        ...,
+        user_id=current_user.id  # Verify user owns base exam
+    )
+```
+
+**`src/routes/page_route.py`**:
+```python
+@router.get("/document/{document_id}")
+async def get_pages_by_document(
+    document_id: UUID,
+    current_user: Optional[User] = Depends(get_optional_user),
+    doc_service: DocumentService = Depends(get_document_service),
+):
+    # Verify user owns document or is admin
+    document = doc_service.get_by_id(
+        document_id,
+        user_id=current_user.id if current_user else None,
+        is_admin=(current_user.role == "admin") if current_user else False
+    )
+    if not document:
+        raise NotFoundException("Document not found or access denied")
+    
+    pages = page_service.get_by_document(document_id)
+
+@router.get("/{page_id}")
+async def get_page(
+    page_id: UUID,
+    current_user: Optional[User] = Depends(get_optional_user),
+    page_service: PageService = Depends(get_page_service),
+):
+    page = page_service.get_by_id(page_id)
+    if not page:
+        raise NotFoundException("Page not found")
+    
+    # Verify user owns the page's document
+    document = doc_service.get_by_id(
+        page.document_id,
+        user_id=current_user.id if current_user else None,
+        is_admin=(current_user.role == "admin") if current_user else False
+    )
+    if not document:
+        raise NotFoundException("Access denied")
+```
 
 ---
 
@@ -511,15 +844,20 @@ Phase 10 — Entity FK Updates
   MODIFY  src/entities/exam_instance.py
   MODIFY  src/entities/question_group.py
 
-Phase 11 — Scoped Queries
-  MODIFY  src/repos/document_repo.py
-  MODIFY  src/repos/exam_template_repo.py
-  MODIFY  src/repos/exam_instance_repo.py
-  MODIFY  src/repos/question_group_repo.py
-  MODIFY  src/services/document_service.py
-  MODIFY  src/services/core/base_exam_generation_service.py
-  MODIFY  src/routes/document_route.py
-  MODIFY  src/routes/exam_route.py
+Phase 11 — Scoped Queries and User Data Isolation
+  MODIFY  src/repos/document_repo.py                (add get_all_paginated_scoped, get_by_id_scoped)
+  MODIFY  src/repos/exam_template_repo.py          (add get_all_paginated_scoped, get_by_id_scoped)
+  MODIFY  src/repos/exam_instance_repo.py          (add get_all_paginated_scoped, get_by_id_scoped, get_versions_of_scoped)
+  MODIFY  src/repos/question_group_repo.py         (add find_by_metadata_scoped, get_or_create_scoped)
+  MODIFY  src/services/document_service.py         (pass user_id to repo.create, add scoped methods)
+  MODIFY  src/services/core/document_extraction_service.py   (no direct changes; pipelines receive user_id via payload)
+  MODIFY  src/services/core/question_extraction_service.py   (fetch user_id from document, pass to grouping_pipeline)
+  MODIFY  src/services/core/base_exam_generation_service.py  (add user_id to save_template, generate_base_exam, _create_exam_instance, _retrieve_candidate_groups)
+  MODIFY  src/services/core/variant_exam_generation_service.py (add user_id to generate_versions)
+  MODIFY  src/pipelines/question_grouping.py       (add user_id to payload, use get_or_create_scoped)
+  MODIFY  src/routes/document_route.py             (require auth for upload, inject get_optional_user on list/get, pass user_id to service)
+  MODIFY  src/routes/exam_route.py                 (require auth for template save/generation, pass user_id to service)
+  MODIFY  src/routes/page_route.py                 (inject get_optional_user, verify document ownership before exposing pages)
 ```
 
 ---
@@ -570,3 +908,133 @@ FRONTEND_URL=http://localhost:3000
 6. **FK field serialization in `to_dict`**: Peewee FK fields accessed as `obj.fk_field` trigger a lazy JOIN. Use the `_id` suffixed attribute (e.g., `uploaded_by_id`) for raw UUID access. Declare `column_name` in all `ForeignKeyField` calls to control the DB column name explicitly.
 
 7. **Circular import prevention**: `User` entity must not import from service or repo layers. The import chain `auth_service → user_service → user_repo → user entity` is safe.
+
+---
+
+## 11. User Data Scoping Architecture
+
+### Core Principle
+
+All data is scoped to the user who created/owns it. Non-admin users can only access their own data; admins can access all data. The scoping applies across all layers: repository, service, route.
+
+### Scoping Rules by Entity
+
+| Entity | Owner Field | Creation Point | Non-Admin Access |
+|--------|-------------|-----------------|------------------|
+| Document | `uploaded_by` | `upload_document` route | Only if uploader matches current user |
+| ExamTemplate | `created_by` | `save_template` route | Only if creator matches current user |
+| ExamInstance | `created_by` | `generate_base_exam` route | Only if creator matches current user; versions inherit base's scope |
+| QuestionGroup | `from_user` | `question_grouping_pipeline` | Only user's groups can be picked for that user's exams (no cross-user reuse) |
+| Page | Derived from Document | Document extraction | Access via document ownership check |
+
+### Scoping Pattern (Repository → Service → Route)
+
+**1. Repository layer** — add `*_scoped` methods:
+```python
+def get_by_id_scoped(self, id: UUID, user_id=None) -> Optional[Entity]:
+    query = Entity.select().where(Entity.id == id)
+    if user_id is not None:
+        query = query.where(Entity.owner_field == user_id)
+    return query.get_or_none()
+
+def get_all_paginated_scoped(self, page, page_size, user_id=None):
+    query = Entity.select()
+    if user_id is not None:
+        query = query.where(Entity.owner_field == user_id)
+    return list(query.offset(...).limit(...)), query.count()
+```
+
+**2. Service layer** — call scoped repos, pass `user_id` on creation:
+```python
+def create_entity(..., user_id=None) -> Entity:
+    return self.repo.create(..., owner_field=user_id)
+
+def get_entity(entity_id, user_id=None, is_admin=False) -> Optional[Entity]:
+    scoped_user_id = None if is_admin else user_id
+    return self.repo.get_by_id_scoped(entity_id, user_id=scoped_user_id)
+```
+
+**3. Route layer** — extract user from token, pass to service:
+```python
+async def get_entity(
+    entity_id: UUID,
+    current_user: Optional[User] = Depends(get_optional_user),
+):
+    user_id = current_user.id if current_user else None
+    is_admin = (current_user.role == "admin") if current_user else False
+    entity = service.get_entity(entity_id, user_id=user_id, is_admin=is_admin)
+    if not entity:
+        raise NotFoundException("Entity not found or access denied")
+```
+
+### Mutation-Only Routes (Require Authentication)
+
+The following routes MUST have `Depends(get_current_user)` (not optional):
+- POST `/documents/upload`
+- POST `/templates` (save exam template)
+- POST `/generate-base` (exam generation)
+- POST `/generate-versions` (version generation)
+- PATCH `/instances/{id}/status` (exam status update)
+- PATCH `/instances/{id}/replace-question` (question replacement in exam)
+
+Non-mutation routes can use `get_optional_user` to allow read-only access for unauthenticated users (at your discretion).
+
+### Critical Implementation Detail: Question Group Scoping
+
+**Issue**: Question groups are typically global — multiple users' questions can belong to the same group if semantically similar. With per-user scoping, question groups become user-isolated.
+
+**Solution**: 
+- Non-admin users: `QuestionGroup.from_user` must match current user. Group creation during document extraction sets `from_user = document.uploaded_by`.
+- When exam generation picks candidate groups for exam building, only groups with matching `from_user` (or `NULL` for pre-existing shared groups) are considered.
+- Admin users: can pick from any group across all users.
+
+**Implementation** in `base_exam_generation_service._retrieve_candidate_groups()`:
+```python
+def _retrieve_candidate_groups(self, section: SectionConfig, user_id=None):
+    # Scoped query: only user's question groups
+    candidates = self._group_repo.find_by_metadata_scoped(
+        section.subject, section.topic, section.difficulty,
+        user_id=user_id  # CRITICAL: limit to user's groups
+    )
+```
+
+### Document Extraction Pipeline (User Context)
+
+The document extraction pipeline must propagate the document uploader's identity (user_id) through the question extraction → grouping → persistence chain:
+
+1. **document_route.upload_document** → pass `uploaded_by=current_user.id` to `document_service`
+2. **question_extraction_service.process_page** → fetch document, extract `user_id = document.uploaded_by`
+3. **question_grouping_pipeline.process** → receive `user_id` in payload, use `get_or_create_scoped(user_id=user_id)`
+4. **question_persistence_pipeline** → no direct changes; groups are already scoped by grouping pipeline
+
+### Access Denial Pattern
+
+Always use `NotFoundException` (404) instead of `ForbiddenException` (403) when denying access due to ownership. This prevents user enumeration:
+```python
+# Correct
+document = service.get_document(doc_id, user_id=current_user.id)
+if not document:
+    raise NotFoundException("Document not found")  # Could mean "doesn't exist" OR "not yours"
+
+# Avoid
+if not current_user_owns(document):
+    raise ForbiddenException("You don't have permission")  # User enumeration risk
+```
+
+### Admin Bypass
+
+Pass `is_admin=True` to any scoped repo method to bypass ownership checks:
+```python
+# Non-admin: only sees their own
+document = repo.get_by_id_scoped(doc_id, user_id=user_id)
+
+# Admin: sees all (pass None to user_id when is_admin=True)
+document = repo.get_by_id_scoped(doc_id, user_id=None) if is_admin else ...
+```
+
+Pattern in services:
+```python
+def get_document(self, doc_id, user_id=None, is_admin=False):
+    scoped_user_id = None if is_admin else user_id
+    return self.repo.get_by_id_scoped(doc_id, user_id=scoped_user_id)
+```

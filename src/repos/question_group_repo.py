@@ -13,15 +13,17 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
         super().__init__(QuestionGroup)
 
     def find_by_metadata(
-        self, subject: str, topic: str, difficulty: str
+        self, subject: str, topic: str, difficulty: str, from_user_id: UUID = None
     ) -> List[QuestionGroup]:
-        return list(
-            QuestionGroup.select().where(
-                (QuestionGroup.subject == subject)
-                & (QuestionGroup.topic == topic)
-                & (QuestionGroup.difficulty == difficulty)
-            )
+        query = QuestionGroup.select().where(
+            (QuestionGroup.subject == subject)
+            & (QuestionGroup.topic == topic)
+            & (QuestionGroup.difficulty == difficulty)
         )
+        # Scope to user if provided
+        if from_user_id:
+            query = query.where(QuestionGroup.from_user_id == from_user_id)
+        return list(query)
 
     def cosine_search(
         self,
@@ -85,6 +87,7 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
         topic: str,
         difficulty: str,
         vector: List[float],
+        from_user_id: UUID = None,
     ) -> QuestionGroup:
         return QuestionGroup.create(
             subject=subject,
@@ -92,6 +95,7 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
             difficulty=difficulty,
             existence_count=0,
             vector_embedding=vector,
+            from_user_id=from_user_id,
         )
 
     def increment_existence_count(self, group_id: UUID) -> None:

@@ -1,6 +1,7 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+from src.services.exam_service import ExamService
 from src.repos.document_repo import DocumentRepository
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.repos.page_repo import PageRepository
@@ -25,21 +26,27 @@ from src.ocr.registry import register_ocr_registry
 from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.ai_route import router as ai_router
+from src.routes.auth_route import router as auth_router
 from src.routes.document_route import router as document_router
 from src.routes.exam_route import router as exam_router
 from src.routes.page_route import router as page_router
 from src.routes.question_route import router as question_router
+from src.routes.user_route import router as user_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
 
 # from src.services.document_processing_service import DocumentProcessingService
+from src.services.auth_service import AuthService
 from src.services.document_service import DocumentService
 from src.services.question_service import QuestionService
 from src.services.page_service import PageService
+from src.services.user_service import UserService
 from src.services.core.document_extraction_service import DocumentExtractionService
 from src.services.core.question_extraction_service import QuestionExtractionService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
-from src.services.core.variant_exam_generation_service import VariantExamGenerationService
+from src.services.core.variant_exam_generation_service import (
+    VariantExamGenerationService,
+)
 import logging
 from src.entities.answer import Answer
 from src.entities.document import Document
@@ -54,6 +61,7 @@ from src.entities.question_group import QuestionGroup
 from src.entities.subject import Subject
 from src.entities.task import Task
 from src.entities.topic import Topic
+from src.entities.user import User
 
 logging.basicConfig(
     level=logging.INFO,
@@ -135,10 +143,21 @@ def setup_di_container() -> None:
     #     singleton=False,
     # )
 
+    # Register auth / user services
+    user_service = UserService()
+    container.register_singleton("user_service", user_service)
+    container.register_singleton(
+        "auth_service",
+        AuthService(
+            user_service=user_service, cache=container.get("cache"), settings=settings
+        ),
+    )
+
     # Register core services as singletons
     container.register_singleton("document_service", DocumentService())
     container.register_singleton("question_service", QuestionService())
     container.register_singleton("page_service", PageService())
+    container.register_singleton("exam_service", ExamService())
 
     # Register core extraction services as factories (non-singleton)
     container.register_type(
@@ -179,6 +198,7 @@ def bind_models_to_database() -> None:
 
         # List of all models to bind
         models = [
+            User,
             Answer,
             Document,
             ExamInstance,
@@ -266,6 +286,7 @@ def create_app() -> FastAPI:
         version=settings.app_version,
         debug=settings.debug,
         lifespan=lifespan,
+        root_path="/api",
     )
 
     # Register exception handlers
@@ -280,6 +301,8 @@ def create_app() -> FastAPI:
     )
 
     # Include routers
+    app.include_router(auth_router, prefix="/auth", tags=["auth"])
+    app.include_router(user_router, prefix="/users", tags=["users"])
     app.include_router(ai_router, prefix="/ai", tags=["ai"])
     app.include_router(document_router, prefix="/documents", tags=["documents"])
     app.include_router(exam_router, prefix="/exam", tags=["exam"])

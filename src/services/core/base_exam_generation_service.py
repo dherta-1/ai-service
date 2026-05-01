@@ -1,10 +1,12 @@
-"""Base Exam Generation Service.
+"""Base Exam Generation Service - Core Generation Logic.
 
-Handles:
-  - save_template      — create or update ExamTemplate with section defaults
-  - generate_base_exam — create a base ExamInstance from section configs
-  - update_exam_status — accept / reject an exam after review
-  - replace_question   — swap a variant within the same QuestionGroup
+Pure generation logic for base exam instances.
+All lifecycle operations (template CRUD, status management, etc.) are in ExamService.
+
+Exports:
+  - generate_base_exam — core generation algorithm
+  - _create_exam_instance — internal helper
+  - Private methods for variant selection and shuffling
 """
 
 from __future__ import annotations
@@ -12,16 +14,13 @@ from __future__ import annotations
 import json
 import logging
 import random
-import string
 from typing import List, Optional
 from uuid import UUID
 
 from src.calculations.diversity_penalty import select_groups_greedy
 from src.dtos.exam.req import SectionConfig
 from src.entities.exam_instance import ExamInstance
-from src.entities.exam_template import ExamTemplate
 from src.entities.question import Question
-from src.entities.question_exam_test import QuestionExamTest
 from src.entities.question_group import QuestionGroup
 from src.repos.answer_repo import AnswerRepository
 from src.repos.exam_instance_repo import ExamInstanceRepository
@@ -31,6 +30,7 @@ from src.repos.question_exam_test_repo import QuestionExamTestRepository
 from src.repos.question_group_repo import QuestionGroupRepository
 from src.repos.question_repo import QuestionRepository
 from src.shared.constants.exam import ExamInstanceStatus
+from src.shared.helpers.exam_generation_helpers import generate_exam_code, increment_exam_counts
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +42,11 @@ _DIFFICULTY_FALLBACKS = {
 
 
 class BaseExamGenerationService:
-    """Generate and manage base (is_base=True) exam instances."""
+    """Base exam generation - pure algorithmic core.
+
+    Focuses on exam creation from section configs. All template and lifecycle
+    operations are delegated to ExamService.
+    """
 
     def __init__(self, llm_client=None):
         self._template_repo = ExamTemplateRepository()
@@ -54,60 +58,9 @@ class BaseExamGenerationService:
         self._answer_repo = AnswerRepository()
         self._llm_client = llm_client
 
-    # ------------------------------------------------------------------
-    # Template management
-    # ------------------------------------------------------------------
-
-    def save_template(
-        self,
-        name: str,
-        subject: str,
-        generation_config: Optional[List[SectionConfig]] = None,
-        template_id: Optional[UUID] = None,
-    ) -> ExamTemplate:
-        """Create or update an ExamTemplate.
-
-        Args:
-            name:              human-readable template name
-            subject:           top-level subject code (e.g. "math")
-            generation_config: default section configs stored as JSON
-            template_id:       if given, update that template; else create new
-
-        Returns:
-            Saved ExamTemplate instance
-        """
-        config_json = (
-            json.dumps([s.model_dump() for s in generation_config])
-            if generation_config
-            else None
-        )
-
-        if template_id:
-            template = self._template_repo.get_by_id(template_id)
-            if not template:
-                raise ValueError(f"Template {template_id} not found")
-            template.name = name
-            template.subject = subject
-            template.generation_config = config_json
-            template.save()
-            return template
-
-        return self._template_repo.create(
-            name=name,
-            subject=subject,
-            generation_config=config_json,
-        )
-
-    def get_template(self, template_id: UUID) -> Optional[ExamTemplate]:
-        return self._template_repo.get_by_id(template_id)
-
-    def list_templates(self, subject: Optional[str] = None) -> List[ExamTemplate]:
-        if subject:
-            return self._template_repo.get_by_subject(subject)
-        return self._template_repo.get_all()
 
     # ------------------------------------------------------------------
-    # Base exam generation
+    # Base exam generation (core algorithm)
     # ------------------------------------------------------------------
 
     def generate_base_exam(
@@ -115,6 +68,7 @@ class BaseExamGenerationService:
         sections: List[SectionConfig],
         template_id: Optional[UUID] = None,
         subject: Optional[str] = None,
+        created_by_id: Optional[UUID] = None,
     ) -> ExamInstance:
         """Generate a base ExamInstance.
 
@@ -126,6 +80,7 @@ class BaseExamGenerationService:
             template_id=template_id,
             sections=final_sections,
             is_base=True,
+            created_by_id=created_by_id,
         )
         logger.info("Generated base exam %s with %d sections", exam.id, len(final_sections))
         return exam
@@ -158,13 +113,15 @@ class BaseExamGenerationService:
         sections: List[SectionConfig],
         is_base: bool,
         parent_exam_id: Optional[UUID] = None,
+        created_by_id: Optional[UUID] = None,
     ) -> ExamInstance:
         exam = self._instance_repo.create(
             exam_template=template_id,
             parent_exam_instance=parent_exam_id,
-            exam_test_code=self._generate_code(),
+            exam_test_code=generate_exam_code(),
             is_base=is_base,
             status=ExamInstanceStatus.PENDING,
+            created_by_id=created_by_id,
         )
 
         all_group_ids: List[UUID] = []
@@ -194,7 +151,7 @@ class BaseExamGenerationService:
             )
 
             for q_order, group in enumerate(selected):
-                variant = self._pick_variant(group)
+                variant = self._pick_variant(group, section.question_type)
                 if not variant:
                     continue
 
@@ -209,155 +166,9 @@ class BaseExamGenerationService:
                 all_group_ids.append(group.id)
                 all_question_ids.append(variant.id)
 
-        self._increment_counts(all_group_ids, all_question_ids)
+        increment_exam_counts(all_group_ids, all_question_ids)
         return exam
 
-    # ------------------------------------------------------------------
-    # Status management
-    # ------------------------------------------------------------------
-
-    def update_exam_status(self, exam_id: UUID, status: int) -> ExamInstance:
-        """Set exam status. 0=pending, 1=accepted, 2=rejected."""
-        if status not in (ExamInstanceStatus.PENDING, ExamInstanceStatus.ACCEPTED, ExamInstanceStatus.REJECTED):
-            raise ValueError(f"Invalid status value: {status}")
-
-        exam = self._instance_repo.get_by_id(exam_id)
-        if not exam:
-            raise ValueError(f"Exam instance {exam_id} not found")
-
-        self._instance_repo.update_status(exam_id, status)
-        exam.status = status
-        return exam
-
-    # ------------------------------------------------------------------
-    # Question replacement (user review)
-    # ------------------------------------------------------------------
-
-    def replace_question(
-        self,
-        exam_instance_id: UUID,
-        qet_id: UUID,
-        new_question_id: UUID,
-    ) -> QuestionExamTest:
-        """Replace a question variant within the same QuestionGroup."""
-        qet = self._qet_repo.get_by_id(qet_id)
-        if not qet:
-            raise ValueError(f"QuestionExamTest {qet_id} not found")
-
-        section = self._section_repo.get_by_id(qet.exam_test_section_id)
-        if str(section.exam_instance_id) != str(exam_instance_id):
-            raise ValueError(f"QuestionExamTest {qet_id} does not belong to exam {exam_instance_id}")
-
-        new_question = self._question_repo.get_by_id(new_question_id)
-        if not new_question:
-            raise ValueError(f"Question {new_question_id} not found")
-
-        if str(new_question.questions_group_id) != str(qet.question_group_id):
-            raise ValueError(
-                f"Question {new_question_id} is not in group {qet.question_group_id}"
-            )
-
-        qet.question_id = str(new_question_id)
-        qet.answer_order = json.dumps(self._shuffle_answers(new_question))
-        qet.save()
-        return qet
-
-    # ------------------------------------------------------------------
-    # Read helpers
-    # ------------------------------------------------------------------
-
-    def get_exam_instance(self, exam_id: UUID) -> Optional[ExamInstance]:
-        return self._instance_repo.get_by_id(exam_id)
-
-    def get_exam_versions(self, base_exam_id: UUID) -> List[ExamInstance]:
-        return self._instance_repo.get_versions_of(base_exam_id)
-
-    def get_base_instances(self, template_id: UUID) -> List[ExamInstance]:
-        return self._instance_repo.get_base_instances(template_id)
-
-    def build_exam_response_data(self, exam: ExamInstance) -> dict:
-        """Assemble full exam data dict (sections + enriched questions)."""
-        sections_data = []
-        total_questions = 0
-
-        sections = self._section_repo.get_by_exam_instance(exam.id)
-        for sec in sections:
-            qets = self._qet_repo.get_by_section(sec.id)
-            questions_data = []
-
-            for qet in qets:
-                question = self._question_repo.get_by_id(UUID(qet.question_id))
-                if not question:
-                    continue
-
-                answers = self._answer_repo.get_by_question(question.id)
-                sub_questions = self._question_repo.get_sub_questions(question.id)
-
-                answer_order = None
-                if qet.answer_order:
-                    try:
-                        answer_order = json.loads(qet.answer_order)
-                    except (ValueError, TypeError):
-                        answer_order = None
-
-                questions_data.append({
-                    "question_exam_test_id": str(qet.id),
-                    "question_id": str(question.id),
-                    "question_group_id": str(qet.question_group_id),
-                    "order_count": qet.order_count,
-                    "answer_order": answer_order,
-                    "question_text": question.question_text,
-                    "question_type": question.question_type,
-                    "difficulty": question.difficulty,
-                    "image_list": question.image_list,
-                    "answers": [
-                        {"id": str(a.id), "value": a.value, "is_correct": a.is_correct}
-                        for a in answers
-                    ],
-                    "sub_questions": [
-                        {
-                            "question_exam_test_id": str(qet.id),
-                            "question_id": str(sq.id),
-                            "question_group_id": str(qet.question_group_id),
-                            "order_count": sq.sub_question_order or 0,
-                            "answer_order": None,
-                            "question_text": sq.question_text,
-                            "question_type": sq.question_type,
-                            "difficulty": None,
-                            "image_list": sq.image_list,
-                            "answers": [
-                                {"id": str(a.id), "value": a.value, "is_correct": a.is_correct}
-                                for a in self._answer_repo.get_by_question(sq.id)
-                            ],
-                            "sub_questions": None,
-                        }
-                        for sq in sub_questions
-                    ] or None,
-                })
-                total_questions += 1
-
-            sections_data.append({
-                "id": str(sec.id),
-                "name": sec.name,
-                "order_index": sec.order_index,
-                "questions": questions_data,
-            })
-
-        return {
-            "id": str(exam.id),
-            "exam_test_code": exam.exam_test_code,
-            "is_base": exam.is_base,
-            "is_exported": exam.is_exported,
-            "status": exam.status,
-            "template_id": str(exam.exam_template_id) if exam.exam_template_id else None,
-            "parent_exam_instance_id": (
-                str(exam.parent_exam_instance_id) if exam.parent_exam_instance_id else None
-            ),
-            "sections": sections_data,
-            "created_at": exam.created_at.isoformat(),
-            "updated_at": exam.updated_at.isoformat(),
-            "_total_questions": total_questions,
-        }
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -417,7 +228,7 @@ class BaseExamGenerationService:
             return None
 
     def _pick_variant(
-        self, group: QuestionGroup, rng: random.Random = None
+        self, group: QuestionGroup, question_type: Optional[str] = None, rng: random.Random = None
     ) -> Optional[Question]:
         variants = list(
             Question.select().where(
@@ -427,6 +238,11 @@ class BaseExamGenerationService:
         )
         if not variants:
             return None
+
+        if question_type:
+            variants = [v for v in variants if v.question_type == question_type]
+            if not variants:
+                return None
 
         weights = [1.0 / (v.variant_existence_count + 1) for v in variants]
         total = sum(weights)
@@ -441,21 +257,3 @@ class BaseExamGenerationService:
         _rng.shuffle(indices)
         return indices
 
-    def _increment_counts(
-        self, group_ids: List[UUID], question_ids: List[UUID]
-    ) -> None:
-        if group_ids:
-            QuestionGroup.update(
-                existence_count=QuestionGroup.existence_count + 1
-            ).where(QuestionGroup.id.in_(group_ids)).execute()
-
-        if question_ids:
-            Question.update(
-                variant_existence_count=Question.variant_existence_count + 1
-            ).where(Question.id.in_(question_ids)).execute()
-
-    @staticmethod
-    def _generate_code() -> str:
-        chars = string.ascii_uppercase + string.digits
-        suffix = "".join(random.choices(chars, k=8))
-        return f"EXAM-{suffix}"

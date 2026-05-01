@@ -7,6 +7,10 @@ from src.lib.event_bus.kafka.producer import KafkaProducerImpl
 from src.services.document_service import DocumentService
 from src.shared.constants.general import Status
 from src.shared.response.response_models import create_response
+from src.shared.auth_deps import get_current_user
+from src.shared.response.exception_handler import ForbiddenException, NotFoundException
+from src.entities.user import User
+from src.shared.constants.user import Role
 
 router = APIRouter()
 
@@ -24,11 +28,14 @@ async def queue_documents_for_extraction(
     document_ids: List[UUID] = Body(..., embed=True),
     doc_service: DocumentService = Depends(get_document_service),
     kafka_producer: KafkaProducerImpl = Depends(get_kafka_producer),
+    current_user: User = Depends(get_current_user),
 ):
     """Stage 2: Queue documents for extraction (produce document_extraction_requested events).
 
     Takes a list of document IDs that have been uploaded via /documents/upload,
     and publishes events to start the extraction pipeline.
+
+    Authorization: Admin can queue any document. Users can only queue their own documents.
     """
     queued = []
     errors = []
@@ -39,6 +46,16 @@ async def queue_documents_for_extraction(
             if not document:
                 errors.append(
                     {"document_id": str(doc_id), "error": "Document not found"}
+                )
+                continue
+
+            # Check authorization: admin or document owner
+            if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+                errors.append(
+                    {
+                        "document_id": str(doc_id),
+                        "error": "You do not have permission to queue this document",
+                    }
                 )
                 continue
 

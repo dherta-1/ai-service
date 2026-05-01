@@ -49,5 +49,15 @@ class ExamInstanceRepository(BaseRepo[ExamInstance]):
         except ExamInstance.DoesNotExist:
             return None
 
+    def get_by_user(self, user_id: UUID) -> List[ExamInstance]:
+        return list(ExamInstance.select().where(ExamInstance.created_by == user_id))
+
+    def get_by_user_and_template(self, user_id: UUID, template_id: UUID) -> List[ExamInstance]:
+        return list(
+            ExamInstance.select().where(
+                (ExamInstance.created_by == user_id) & (ExamInstance.exam_template == template_id)
+            )
+        )
+
     def update_status(self, exam_id: UUID, status: int) -> None:
         ExamInstance.update(status=status).where(ExamInstance.id == exam_id).execute()

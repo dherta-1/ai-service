@@ -2,7 +2,7 @@ from uuid import UUID
 from fastapi import APIRouter, Query, UploadFile, File, Form, Depends, status
 
 from src.container import get_di_container
-from src.shared.response.exception_handler import NotFoundException, BadRequestException
+from src.shared.response.exception_handler import NotFoundException, BadRequestException, ForbiddenException
 from src.services.document_service import DocumentService
 from src.services.question_service import QuestionService
 from src.shared.helpers.dto_utils import to_dict
@@ -10,6 +10,9 @@ from src.shared.response.response_models import (
     create_response,
     create_paginated_response,
 )
+from src.shared.auth_deps import get_current_user, require_admin
+from src.entities.user import User
+from src.shared.constants.user import Role
 
 router = APIRouter()
 
@@ -27,10 +30,12 @@ async def upload_document(
     file: UploadFile = File(...),
     s3_prefix: str = Form(default="documents"),
     service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ):
     """Stage 1: Upload document file to S3 and create metadata (no processing).
 
     Returns document_id which can later be queued for extraction via /ai/queue.
+    Requires authentication - sets uploaded_by_id to current user.
     """
     if not file.filename:
         raise BadRequestException("Missing filename")
@@ -39,6 +44,7 @@ async def upload_document(
         document = await service.upload_and_create_metadata(
             file=file,
             s3_prefix=s3_prefix,
+            uploaded_by_id=current_user.id,
         )
         return create_response(
             data={
@@ -96,10 +102,17 @@ async def get_task_progress(
     document_id: UUID,
     task_id: UUID,
     service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ):
     """Get extraction task progress for a document."""
-    if not service.get_by_id(document_id):
+    document = service.get_by_id(document_id)
+    if not document:
         raise NotFoundException("Document not found")
+
+    # Check authorization: admin or document owner
+    if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+        raise ForbiddenException("You do not have permission to access this document")
+
     task = service.get_task(task_id)
     if not task:
         raise NotFoundException("Task not found")
@@ -110,8 +123,17 @@ async def get_task_progress(
 async def get_latest_task(
     document_id: UUID,
     service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ):
     """Get the latest extraction task for a document."""
+    document = service.get_by_id(document_id)
+    if not document:
+        raise NotFoundException("Document not found")
+
+    # Check authorization: admin or document owner
+    if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+        raise ForbiddenException("You do not have permission to access this document")
+
     task = service.get_latest_task(document_id)
     if not task:
         raise NotFoundException("No task found for this document")
@@ -125,11 +147,16 @@ async def get_document_questions(
     page_size: int = Query(10, ge=1, le=100),
     doc_service: DocumentService = Depends(get_document_service),
     question_service: QuestionService = Depends(get_question_service),
+    current_user: User = Depends(get_current_user),
 ):
     """Get extracted questions for a document."""
     document = doc_service.get_by_id(document_id)
     if not document:
         raise NotFoundException("Document not found")
+
+    # Check authorization: admin or document owner
+    if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+        raise ForbiddenException("You do not have permission to access this document")
 
     questions = question_service.get_by_document(document_id)
     offset = (page - 1) * page_size
@@ -147,10 +174,15 @@ async def get_document_questions(
 async def get_document(
     document_id: UUID,
     service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ):
     document = service.get_by_id(document_id)
     if not document:
         raise NotFoundException("Document not found")
+
+    # Check authorization: admin or document owner
+    if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+        raise ForbiddenException("You do not have permission to access this document")
 
     data = to_dict(document)
     task = service.get_latest_task(document_id)
@@ -163,8 +195,14 @@ async def list_documents(
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
 ):
-    documents, total = service.get_all_paginated(page, page_size)
+    # Admin can see all documents, users see only their own
+    if current_user.role == Role.admin.value:
+        documents, total = service.get_all_paginated(page, page_size)
+    else:
+        documents, total = service.get_all_paginated_by_user(current_user.id, page, page_size)
+
     return create_paginated_response(
         data=[to_dict(d) for d in documents],
         total=total,

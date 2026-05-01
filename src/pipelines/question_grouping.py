@@ -62,6 +62,7 @@ class QuestionGroupingPipeline(BasePipeline):
     async def process(self, payload: dict[str, Any]) -> dict[str, Any]:
         questions = payload.get("questions", [])
         threshold = payload.get("similarity_threshold", self._threshold)
+        uploaded_by_id = payload.get("uploaded_by_id")
 
         grouped = []
         for q_data in questions:
@@ -74,7 +75,7 @@ class QuestionGroupingPipeline(BasePipeline):
                 group_id = None
             else:
                 group = self._find_or_create_group(
-                    subject, topic, difficulty, vector, threshold
+                    subject, topic, difficulty, vector, threshold, uploaded_by_id
                 )
                 group_id = group.id if group else None
 
@@ -102,17 +103,19 @@ class QuestionGroupingPipeline(BasePipeline):
         difficulty: str,
         vector: Optional[List[float]],
         threshold: float,
+        uploaded_by_id=None,
     ) -> Optional[QuestionGroup]:
         """Find or create a question group using two-step matching.
 
-        Step 1: Filter by taxonomy (subject, topic, difficulty)
+        Step 1: Filter by taxonomy (subject, topic, difficulty) and user
         Step 2: Search filtered candidates by vector embedding similarity
 
         This approach allows multiple groups with the same taxonomy while using
         vector similarity as the primary matching criterion within that taxonomy.
+        Groups are scoped per user - only reuse groups created by the same uploader.
         """
-        # Step 1: Filter candidates by taxonomy
-        candidates = self._repo.find_by_metadata(subject, topic, difficulty)
+        # Step 1: Filter candidates by taxonomy and user
+        candidates = self._repo.find_by_metadata(subject, topic, difficulty, from_user_id=uploaded_by_id)
 
         # Step 2: Search candidates by vector similarity
         if candidates and vector:
@@ -130,7 +133,7 @@ class QuestionGroupingPipeline(BasePipeline):
                 )
                 return best
 
-        group = self._repo.create_with_vector(subject, topic, difficulty, vector or [])
+        group = self._repo.create_with_vector(subject, topic, difficulty, vector or [], from_user_id=uploaded_by_id)
         logger.debug(
             "Created new QuestionGroup %s for %s/%s/%s",
             group.id,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import List, Optional
+from uuid import UUID
 
 from src.entities.exam_template import ExamTemplate
 from src.shared.base.base_repo import BaseRepo
@@ -16,3 +17,13 @@ class ExamTemplateRepository(BaseRepo[ExamTemplate]):
 
     def get_by_subject(self, subject: str) -> List[ExamTemplate]:
         return list(ExamTemplate.select().where(ExamTemplate.subject == subject))
+
+    def get_by_user(self, user_id: UUID) -> List[ExamTemplate]:
+        return list(ExamTemplate.select().where(ExamTemplate.created_by == user_id))
+
+    def get_by_subject_and_user(self, subject: str, user_id: UUID) -> List[ExamTemplate]:
+        return list(
+            ExamTemplate.select().where(
+                (ExamTemplate.subject == subject) & (ExamTemplate.created_by == user_id)
+            )
+        )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from uuid import UUID
 import asyncio
 from fastapi import UploadFile
@@ -32,6 +32,9 @@ class DocumentService(BaseService):
     def get_all_paginated(self, page: int = 1, page_size: int = 10):
         return self.repo.get_all_paginated(page, page_size)
 
+    def get_all_paginated_by_user(self, uploaded_by_id: UUID, page: int = 1, page_size: int = 10):
+        return self.repo.get_all_paginated_by_user(uploaded_by_id, page, page_size)
+
     def get_by_file_id(self, file_id: str):
         return self.repo.get_by_file_id(file_id)
 
@@ -51,7 +54,7 @@ class DocumentService(BaseService):
         return self._task_repo.get_by_id(task_id)
 
     async def upload_and_create_metadata(
-        self, file: UploadFile, s3_prefix: str = "documents"
+        self, file: UploadFile, s3_prefix: str = "documents", uploaded_by_id: UUID = None
     ):
         """Stage 1: Upload file to S3 and create document metadata."""
         if not file.filename:
@@ -92,6 +95,7 @@ class DocumentService(BaseService):
             file_id=str(fm.id),
             status=Status.PENDING.value,
             progress=0.0,
+            uploaded_by_id=uploaded_by_id,
         )
 
         return document

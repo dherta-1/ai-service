@@ -114,6 +114,7 @@ class DocumentExtractionHandler(BaseEventHandler):
                         "page_id": str(result.page.id),
                         "task_id": str(task.id),
                         "is_final_page": result.is_final,
+                        "uploaded_by_id": str(document.uploaded_by_id) if document.uploaded_by_id else None,
                     },
                     topic="question_extraction_requested",
                 )

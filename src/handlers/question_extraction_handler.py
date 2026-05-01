@@ -54,6 +54,8 @@ class QuestionExtractionHandler(BaseEventHandler):
         page_id = UUID(value["page_id"])
         task_id = UUID(value["task_id"])
         is_final_page = bool(value.get("is_final_page", False))
+        uploaded_by_id_str = value.get("uploaded_by_id")
+        uploaded_by_id = UUID(uploaded_by_id_str) if uploaded_by_id_str else None
 
         task_repo = TaskRepository()
 
@@ -62,6 +64,7 @@ class QuestionExtractionHandler(BaseEventHandler):
                 page_id=page_id,
                 task_id=task_id,
                 is_final_page=is_final_page,
+                uploaded_by_id=uploaded_by_id,
             )
 
             logger.info(

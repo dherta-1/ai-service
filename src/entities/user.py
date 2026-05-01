@@ -1,4 +1,4 @@
-from peewee import CharField, DateTimeField
+from peewee import BooleanField, CharField, DateTimeField
 from src.shared.constants.user import Role
 from src.shared.base.base_entity import BaseEntity
 
@@ -6,11 +6,10 @@ from src.shared.base.base_entity import BaseEntity
 class User(BaseEntity):
     name = CharField(max_length=255)
     email = CharField(max_length=255, unique=True)
-    role = CharField(
-        max_length=50, default=Role.student.value
-    )  # teacher | student, default=Role.student.value
-    reset_password_token = CharField(max_length=50, null=True)
-    is_email_verified = CharField(max_length=5, default="false")  # "true" or "false"
+    password_hash = CharField(max_length=255, null=True)
+    role = CharField(max_length=50, default=Role.user.value)
+    is_email_verified = BooleanField(default=False)
+    email_verification_sent_at = DateTimeField(null=True)
     last_login_at = DateTimeField(null=True)
 
     class Meta:

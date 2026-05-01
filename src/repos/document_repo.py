@@ -1,4 +1,5 @@
-from typing import List, Optional
+from typing import List, Optional, Tuple
+from uuid import UUID
 from src.entities.document import Document
 from src.shared.base.base_repo import BaseRepo
 from src.shared.constants.general import Status
@@ -20,3 +21,11 @@ class DocumentRepository(BaseRepo[Document]):
 
     def get_pending(self) -> List[Document]:
         return self.get_by_status(Status.PENDING.value)
+
+    def get_all_paginated_by_user(self, uploaded_by_id: UUID, page: int = 1, page_size: int = 10) -> Tuple[List[Document], int]:
+        """Get paginated documents for a specific user"""
+        query = Document.select().where(Document.uploaded_by_id == uploaded_by_id)
+        total = query.count()
+        offset = (page - 1) * page_size
+        documents = list(query.offset(offset).limit(page_size))
+        return documents, total
