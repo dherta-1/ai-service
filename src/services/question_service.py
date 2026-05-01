@@ -49,24 +49,33 @@ class QuestionService(BaseService):
 
     def find_filtered(
         self,
+        search_query: Optional[str] = None,
         subject: Optional[str] = None,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
         status: Optional[int] = None,
         page: int = 1,
         page_size: int = 20,
     ):
         offset = (page - 1) * page_size
         questions = self.repo.find_filtered(
+            search_query=search_query,
             subject=subject,
             topic=topic,
             difficulty=difficulty,
+            question_type=question_type,
             status=status,
             offset=offset,
             limit=page_size,
         )
         total = self.repo.count_filtered(
-            subject=subject, topic=topic, difficulty=difficulty, status=status
+            search_query=search_query,
+            subject=subject,
+            topic=topic,
+            difficulty=difficulty,
+            question_type=question_type,
+            status=status,
         )
         return questions, total
 

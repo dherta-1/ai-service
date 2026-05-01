@@ -43,7 +43,7 @@ async def queue_documents_for_extraction(
                 continue
 
             # Still allow queuing even if document status is completed
-            if document.status not in [Status.PENDING.value, Status.COMPLETED.value]:
+            if document.status not in {Status.PENDING.value, Status.COMPLETED.value}:
                 errors.append(
                     {
                         "document_id": str(doc_id),

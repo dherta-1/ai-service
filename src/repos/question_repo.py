@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
+from peewee import fn
 from src.entities.question import Question
 from src.shared.base.base_repo import BaseRepo
 
@@ -65,38 +66,50 @@ class QuestionRepository(BaseRepo[Question]):
 
     def find_filtered(
         self,
+        search_query: Optional[str] = None,
         subject: Optional[str] = None,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
         status: Optional[int] = None,
         offset: int = 0,
         limit: int = 20,
     ) -> List[Question]:
         query = Question.select().where(Question.parent_question.is_null())
+        if search_query:
+            query = query.where(Question.question_text.contains(search_query))
         if subject:
             query = query.where(Question.subject == subject)
         if topic:
             query = query.where(Question.topic == topic)
         if difficulty:
             query = query.where(Question.difficulty == difficulty)
+        if question_type:
+            query = query.where(Question.question_type == question_type)
         if status is not None:
             query = query.where(Question.status == status)
         return list(query.offset(offset).limit(limit))
 
     def count_filtered(
         self,
+        search_query: Optional[str] = None,
         subject: Optional[str] = None,
         topic: Optional[str] = None,
         difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
         status: Optional[int] = None,
     ) -> int:
         query = Question.select().where(Question.parent_question.is_null())
+        if search_query:
+            query = query.where(Question.question_text.contains(search_query))
         if subject:
             query = query.where(Question.subject == subject)
         if topic:
             query = query.where(Question.topic == topic)
         if difficulty:
             query = query.where(Question.difficulty == difficulty)
+        if question_type:
+            query = query.where(Question.question_type == question_type)
         if status is not None:
             query = query.where(Question.status == status)
         return query.count()

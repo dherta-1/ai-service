@@ -6,7 +6,7 @@ from peewee import BooleanField, CharField, ForeignKeyField, TextField
 class Answer(BaseEntity):
 
     question = ForeignKeyField(Question, backref="answers")
-    value = CharField(max_length=512)
+    value = TextField()
     is_correct = BooleanField()
     explaination = TextField(null=True)  # keeping spec's spelling for DB column name
 

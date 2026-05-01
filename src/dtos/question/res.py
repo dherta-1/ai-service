@@ -51,6 +51,27 @@ class QuestionResponse(BaseModel):
         from_attributes = True
 
 
+class QuestionListResponse(BaseModel):
+    id: UUID
+    page_id: Optional[UUID] = None
+    parent_question_id: Optional[UUID] = None
+    questions_group_id: Optional[UUID] = None
+    question_text: str
+    question_type: str
+    difficulty: Optional[str] = None
+    subject: Optional[str] = None
+    topic: Optional[str] = None
+    image_list: Optional[list] = None
+    sub_question_order: Optional[int] = None
+    variant_existence_count: int = 1
+    status: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
 class QuestionDetailResponse(QuestionResponse):
     answers: Optional[List[AnswerResponse]] = None
     sub_questions: Optional[List[SubQuestionResponse]] = None

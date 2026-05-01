@@ -1,7 +1,8 @@
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, UploadFile, File, Form, Depends, status
+from fastapi import APIRouter, Query, UploadFile, File, Form, Depends, status
 
 from src.container import get_di_container
+from src.shared.response.exception_handler import NotFoundException, BadRequestException
 from src.services.document_service import DocumentService
 from src.services.question_service import QuestionService
 from src.shared.helpers.dto_utils import to_dict
@@ -32,7 +33,7 @@ async def upload_document(
     Returns document_id which can later be queued for extraction via /ai/queue.
     """
     if not file.filename:
-        raise HTTPException(status_code=400, detail="Missing filename")
+        raise BadRequestException("Missing filename")
 
     try:
         document = await service.upload_and_create_metadata(
@@ -48,10 +49,8 @@ async def upload_document(
             },
             message="Document uploaded successfully",
         )
-    except HTTPException:
-        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}") from e
+        raise BadRequestException(f"Upload failed: {e}") from e
 
 
 @router.get("/pending")
@@ -70,7 +69,7 @@ async def get_document_by_file_id(
 ):
     document = service.get_by_file_id(file_id)
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundException("Document not found")
     return create_response(data=to_dict(document), message="Document retrieved successfully")
 
 
@@ -100,10 +99,10 @@ async def get_task_progress(
 ):
     """Get extraction task progress for a document."""
     if not service.get_by_id(document_id):
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundException("Document not found")
     task = service.get_task(task_id)
     if not task:
-        raise HTTPException(status_code=404, detail="Task not found")
+        raise NotFoundException("Task not found")
     return create_response(data=to_dict(task), message="Task retrieved successfully")
 
 
@@ -115,7 +114,7 @@ async def get_latest_task(
     """Get the latest extraction task for a document."""
     task = service.get_latest_task(document_id)
     if not task:
-        raise HTTPException(status_code=404, detail="No task found for this document")
+        raise NotFoundException("No task found for this document")
     return create_response(data=to_dict(task), message="Task retrieved successfully")
 
 
@@ -130,7 +129,7 @@ async def get_document_questions(
     """Get extracted questions for a document."""
     document = doc_service.get_by_id(document_id)
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundException("Document not found")
 
     questions = question_service.get_by_document(document_id)
     offset = (page - 1) * page_size
@@ -151,7 +150,7 @@ async def get_document(
 ):
     document = service.get_by_id(document_id)
     if not document:
-        raise HTTPException(status_code=404, detail="Document not found")
+        raise NotFoundException("Document not found")
 
     data = to_dict(document)
     task = service.get_latest_task(document_id)

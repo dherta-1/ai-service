@@ -1,7 +1,8 @@
 from uuid import UUID
-from fastapi import APIRouter, HTTPException, Query, Depends
+from fastapi import APIRouter, Query, Depends
 
 from src.container import get_di_container
+from src.shared.response.exception_handler import NotFoundException
 from src.services.page_service import PageService
 from src.services.question_service import QuestionService
 from src.shared.helpers.dto_utils import to_dict
@@ -29,7 +30,7 @@ async def get_page_by_document_and_number(
 ):
     page = service.get_by_document_and_page_number(document_id, page_number)
     if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise NotFoundException("Page not found")
     return create_response(data=to_dict(page), message="Page retrieved successfully")
 
 
@@ -61,7 +62,7 @@ async def get_page_questions(
 ):
     """Get top-level questions for a specific page."""
     if not page_service.get_by_id(page_id):
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise NotFoundException("Page not found")
     questions = question_service.get_by_page(page_id)
     offset = (page - 1) * page_size
     return create_paginated_response(
@@ -80,7 +81,7 @@ async def get_page(
 ):
     page = service.get_by_id(page_id)
     if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise NotFoundException("Page not found")
     return create_response(data=to_dict(page), message="Page retrieved successfully")
 
 

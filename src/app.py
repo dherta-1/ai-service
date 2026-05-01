@@ -26,6 +26,7 @@ from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
 from src.routes.ai_route import router as ai_router
 from src.routes.document_route import router as document_router
+from src.routes.exam_route import router as exam_router
 from src.routes.page_route import router as page_router
 from src.routes.question_route import router as question_router
 from src.shared.response.exception_handler import register_exception_handlers
@@ -37,13 +38,19 @@ from src.services.question_service import QuestionService
 from src.services.page_service import PageService
 from src.services.core.document_extraction_service import DocumentExtractionService
 from src.services.core.question_extraction_service import QuestionExtractionService
+from src.services.core.base_exam_generation_service import BaseExamGenerationService
+from src.services.core.variant_exam_generation_service import VariantExamGenerationService
 import logging
+from src.entities.answer import Answer
 from src.entities.document import Document
+from src.entities.exam_instance import ExamInstance
+from src.entities.exam_template import ExamTemplate
+from src.entities.exam_test_section import ExamTestSection
 from src.entities.file_metadata import FileMetadata
 from src.entities.page import Page
 from src.entities.question import Question
+from src.entities.question_exam_test import QuestionExamTest
 from src.entities.question_group import QuestionGroup
-from src.entities.answer import Answer
 from src.entities.subject import Subject
 from src.entities.task import Task
 from src.entities.topic import Topic
@@ -151,6 +158,16 @@ def setup_di_container() -> None:
         singleton=False,
     )
 
+    # Register exam generation services as singletons
+    container.register_type(
+        BaseExamGenerationService,
+        lambda: BaseExamGenerationService(llm_client=container.get("llm_client")),
+    )
+    container.register_type(
+        VariantExamGenerationService,
+        lambda: VariantExamGenerationService(llm_client=container.get("llm_client")),
+    )
+
     logger.info("DI container initialized")
 
 
@@ -162,12 +179,16 @@ def bind_models_to_database() -> None:
 
         # List of all models to bind
         models = [
+            Answer,
             Document,
+            ExamInstance,
+            ExamTemplate,
+            ExamTestSection,
             FileMetadata,
             Page,
             Question,
+            QuestionExamTest,
             QuestionGroup,
-            Answer,
             Subject,
             Task,
             Topic,
@@ -261,6 +282,7 @@ def create_app() -> FastAPI:
     # Include routers
     app.include_router(ai_router, prefix="/ai", tags=["ai"])
     app.include_router(document_router, prefix="/documents", tags=["documents"])
+    app.include_router(exam_router, prefix="/exam", tags=["exam"])
     app.include_router(page_router, prefix="/pages", tags=["pages"])
     app.include_router(question_router, prefix="/questions", tags=["questions"])
 
