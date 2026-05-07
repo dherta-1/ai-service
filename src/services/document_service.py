@@ -6,7 +6,6 @@ import asyncio
 from fastapi import UploadFile
 
 from src.repos.document_repo import DocumentRepository
-from src.repos.task_repo import TaskRepository
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.shared.base.base_service import BaseService
 from src.shared.constants.general import Status
@@ -16,11 +15,8 @@ from src.settings import get_settings
 
 class DocumentService(BaseService):
 
-    def __init__(
-        self,
-    ):
+    def __init__(self):
         super().__init__(DocumentRepository())
-        self._task_repo = TaskRepository()
         self._file_meta_repo = FileMetadataRepository()
 
     def get_by_id(self, document_id: UUID):
@@ -46,12 +42,6 @@ class DocumentService(BaseService):
 
     def get_pending(self):
         return self.repo.get_pending()
-
-    def get_latest_task(self, document_id: UUID):
-        return self._task_repo.get_latest_by_document(document_id)
-
-    def get_task(self, task_id: UUID):
-        return self._task_repo.get_by_id(task_id)
 
     async def upload_and_create_metadata(
         self, file: UploadFile, s3_prefix: str = "documents", uploaded_by_id: UUID = None
@@ -99,3 +89,43 @@ class DocumentService(BaseService):
         )
 
         return document
+
+    async def batch_upload_and_create_metadata(
+        self, files: List[UploadFile], s3_prefix: str = "documents", uploaded_by_id: UUID = None
+    ) -> Tuple[List[dict], List[dict]]:
+        """Batch upload multiple files to S3 and create document metadata.
+
+        Returns tuple of (successful_uploads, failed_uploads).
+        Each item has: document_id, file_id, name, status, and error (if failed).
+        """
+        if not files:
+            raise ValueError("No files provided")
+
+        successful_uploads = []
+        failed_uploads = []
+
+        # Process uploads concurrently
+        tasks = [
+            self.upload_and_create_metadata(file, s3_prefix, uploaded_by_id)
+            for file in files
+        ]
+
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        for idx, result in enumerate(results):
+            filename = files[idx].filename or f"file_{idx}"
+
+            if isinstance(result, Exception):
+                failed_uploads.append({
+                    "filename": filename,
+                    "error": str(result),
+                })
+            else:
+                successful_uploads.append({
+                    "document_id": str(result.id),
+                    "file_id": str(result.file_id),
+                    "name": result.name,
+                    "status": result.status,
+                })
+
+        return successful_uploads, failed_uploads

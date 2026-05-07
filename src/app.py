@@ -29,8 +29,10 @@ from src.routes.ai_route import router as ai_router
 from src.routes.auth_route import router as auth_router
 from src.routes.document_route import router as document_router
 from src.routes.exam_route import router as exam_router
+from src.routes.file_route import router as file_router
 from src.routes.page_route import router as page_router
 from src.routes.question_route import router as question_router
+from src.routes.task_route import router as task_router
 from src.routes.user_route import router as user_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
@@ -38,6 +40,8 @@ from src.shared.response.response_models import create_response
 # from src.services.document_processing_service import DocumentProcessingService
 from src.services.auth_service import AuthService
 from src.services.document_service import DocumentService
+from src.services.file_service import FileService
+from src.services.task_service import TaskService
 from src.services.question_service import QuestionService
 from src.services.page_service import PageService
 from src.services.user_service import UserService
@@ -155,6 +159,8 @@ def setup_di_container() -> None:
 
     # Register core services as singletons
     container.register_singleton("document_service", DocumentService())
+    container.register_singleton("file_service", FileService())
+    container.register_singleton("task_service", TaskService())
     container.register_singleton("question_service", QuestionService())
     container.register_singleton("page_service", PageService())
     container.register_singleton("exam_service", ExamService())
@@ -305,7 +311,9 @@ def create_app() -> FastAPI:
     app.include_router(user_router, prefix="/users", tags=["users"])
     app.include_router(ai_router, prefix="/ai", tags=["ai"])
     app.include_router(document_router, prefix="/documents", tags=["documents"])
-    app.include_router(exam_router, prefix="/exam", tags=["exam"])
+    app.include_router(file_router, prefix="/files", tags=["files"])
+    app.include_router(task_router, prefix="/documents", tags=["tasks"])
+    app.include_router(exam_router, prefix="/exams", tags=["exam"])
     app.include_router(page_router, prefix="/pages", tags=["pages"])
     app.include_router(question_router, prefix="/questions", tags=["questions"])
 

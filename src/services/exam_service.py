@@ -193,6 +193,26 @@ class ExamService:
             return [inst for inst in all_instances if inst.created_by_id == user_id]
         return all_instances
 
+    def get_all_instances_by_template(
+        self, template_id: UUID, user_id: Optional[UUID] = None
+    ) -> List[ExamInstance]:
+        """Get all exam instances (base + versions) from a template.
+
+        Returns all exam instances created directly from this template,
+        including base exams and all their variant versions.
+
+        If user_id provided (non-admin): return only user's instances.
+        If user_id is None (admin): return all instances.
+        """
+        base_instances = self.get_base_instances(template_id, user_id)
+        all_instances = list(base_instances)
+
+        for base_exam in base_instances:
+            versions = self.get_exam_versions(base_exam.id)
+            all_instances.extend(versions)
+
+        return all_instances
+
     def build_exam_response_data(self, exam: ExamInstance) -> dict:
         """Assemble full exam data dict (sections + enriched questions)."""
         sections_data = []

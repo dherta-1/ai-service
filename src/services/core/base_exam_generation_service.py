@@ -175,8 +175,13 @@ class BaseExamGenerationService:
     # ------------------------------------------------------------------
 
     def _retrieve_candidate_groups(self, section: SectionConfig) -> List[QuestionGroup]:
+        topics = section.topic if isinstance(section.topic, list) else [section.topic]
         candidates = self._group_repo.find_by_metadata(
             section.subject, section.topic, section.difficulty
+        )
+        logger.info(
+            "Retrieved %d candidate groups for section '%s' (subject=%s, topics=%s, difficulty=%s)",
+            len(candidates), section.name, section.subject, topics, section.difficulty,
         )
 
         if not candidates:
@@ -186,25 +191,43 @@ class BaseExamGenerationService:
                 )
                 if candidates:
                     logger.info(
-                        "Fell back to difficulty '%s' for section '%s'",
-                        fallback_diff, section.name,
+                        "Fell back to difficulty '%s' for section '%s' (found %d groups)",
+                        fallback_diff, section.name, len(candidates),
                     )
                     break
 
         if not candidates:
+            logger.warning(
+                "No candidate groups found for section '%s' (subject=%s, topics=%s, difficulty=%s)",
+                section.name, section.subject, topics, section.difficulty,
+            )
             return []
 
         # Filter by question_type if specified
         if section.question_type:
+            types_to_match = (
+                section.question_type
+                if isinstance(section.question_type, list)
+                else [section.question_type]
+            )
             filtered = []
             for group in candidates:
                 # Get any question from this group to check its type
                 questions = self._question_repo.get_by_group(group.id)
-                if questions and any(q.question_type == section.question_type for q in questions):
+                if questions and any(q.question_type in types_to_match for q in questions):
                     filtered.append(group)
+
+            logger.info(
+                "Filtered %d → %d groups by question_type %s for section '%s'",
+                len(candidates), len(filtered), types_to_match, section.name,
+            )
             candidates = filtered
 
         if not candidates:
+            logger.warning(
+                "No candidates remaining after question_type filtering for section '%s'",
+                section.name,
+            )
             return []
 
         # If custom_text: vector-rank via cosine (no threshold — just sort)
@@ -222,13 +245,14 @@ class BaseExamGenerationService:
         if not text or not self._llm_client:
             return None
         try:
-            return self._llm_client.embed(text)
+            embeddings = self._llm_client.embed(text)
+            return embeddings[0] if embeddings else None
         except Exception as exc:
             logger.warning("Failed to embed custom_text: %s", exc)
             return None
 
     def _pick_variant(
-        self, group: QuestionGroup, question_type: Optional[str] = None, rng: random.Random = None
+        self, group: QuestionGroup, question_type: Optional[str | list[str]] = None, rng: random.Random = None
     ) -> Optional[Question]:
         variants = list(
             Question.select().where(
@@ -240,7 +264,10 @@ class BaseExamGenerationService:
             return None
 
         if question_type:
-            variants = [v for v in variants if v.question_type == question_type]
+            types_to_match = (
+                question_type if isinstance(question_type, list) else [question_type]
+            )
+            variants = [v for v in variants if v.question_type in types_to_match]
             if not variants:
                 return None
 

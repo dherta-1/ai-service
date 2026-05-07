@@ -1,20 +1,40 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from uuid import UUID
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, field_validator
 
 
 class SectionConfig(BaseModel):
     name: str
     subject: str
-    topic: str
+    topic: Union[str, List[str]]                  # single topic or list of topics
     difficulty: str                         # "easy" | "medium" | "hard"
-    question_type: Optional[str] = None     # filter by type; None = any
+    question_type: Optional[Union[str, List[str]]] = None  # single type, list of types, or None = any
     top_k: int = Field(ge=1)
     random_level: str = "medium"            # "low" | "medium" | "high"
     custom_text: Optional[str] = None       # semantic hint for retrieval
+
+    @field_validator("topic", mode="before")
+    @classmethod
+    def normalize_topic(cls, v):
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            return v
+        raise ValueError("topic must be a string or list of strings")
+
+    @field_validator("question_type", mode="before")
+    @classmethod
+    def normalize_question_type(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            return v
+        raise ValueError("question_type must be a string, list of strings, or null")
 
 
 class SaveExamTemplateRequest(BaseModel):

@@ -126,6 +126,40 @@ async def get_template(
     return create_response(data=data, message="Template retrieved successfully")
 
 
+@router.get("/templates/{template_id}/instances")
+async def list_instances_by_template(
+    template_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: ExamService = Depends(get_exam_service),
+):
+    """Get all exam instances (base + versions) created from a template.
+
+    - Admin: returns all instances from template
+    - Non-admin: returns only their own instances from template
+    """
+    template = service.get_template(template_id)
+    if not template:
+        raise NotFoundException("Template not found")
+
+    if current_user.role != "admin" and template.created_by_id != current_user.id:
+        raise NotFoundException("Template not found")
+
+    user_id = None if current_user.role == "admin" else current_user.id
+    instances = service.get_all_instances_by_template(template_id, user_id)
+
+    data = []
+    for instance in instances:
+        instance_data = service.build_exam_response_data(instance)
+        instance_data.pop("_total_questions", None)
+        data.append(instance_data)
+
+    return create_paginated_response(
+        data=data,
+        total=len(data),
+        message=f"Retrieved {len(data)} exam instances from template",
+    )
+
+
 # ------------------------------------------------------------------
 # Base exam generation
 # ------------------------------------------------------------------
@@ -149,7 +183,11 @@ async def generate_base_exam(
             subject=body.subject,
             created_by_id=current_user.id,
         )
+        logger.info(f"Generated exam {exam.id}")
         exam_data = exam_service.build_exam_response_data(exam)
+        logger.info(f"Exam data sections: {len(exam_data.get('sections', []))}")
+        for sec in exam_data.get('sections', []):
+            logger.info(f"  Section {sec['name']}: {len(sec.get('questions', []))} questions")
         total_questions = exam_data.pop("_total_questions", 0)
         return create_response(
             data={"exam_instance": exam_data, "total_questions": total_questions},

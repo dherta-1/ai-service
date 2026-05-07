@@ -13,11 +13,16 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
         super().__init__(QuestionGroup)
 
     def find_by_metadata(
-        self, subject: str, topic: str, difficulty: str, from_user_id: UUID = None
+        self,
+        subject: str,
+        topic: str | list[str],
+        difficulty: str,
+        from_user_id: UUID = None
     ) -> List[QuestionGroup]:
+        topics = topic if isinstance(topic, list) else [topic]
         query = QuestionGroup.select().where(
             (QuestionGroup.subject == subject)
-            & (QuestionGroup.topic == topic)
+            & (QuestionGroup.topic.in_(topics))
             & (QuestionGroup.difficulty == difficulty)
         )
         # Scope to user if provided

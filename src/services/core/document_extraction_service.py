@@ -215,7 +215,7 @@ class DocumentExtractionService:
 
                 progress = round((page_index + 1) / total, 4)
                 await asyncio.to_thread(
-                    self._doc_repo.update, document.id, progress=progress * 100.0
+                    self._doc_repo.update, document.id, progress=progress
                 )
                 logger.info(
                     "Page %d/%d extracted for document %s",
