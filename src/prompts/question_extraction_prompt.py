@@ -75,7 +75,7 @@ STRICT RULES:
 6. question_type: MUST be one of: {question_types}.
 7. difficulty: MUST be one of: {difficulty_levels}.
 8. subject: MUST be one of: {subjects}. Also return its vietnamese name in subject_vi. If unknown, set subject_vi to null.
-9. topic: must be in snake_case and as specific as possible (e.g., "calculus", "algebra", "physics_mechanics", etc.). Also return its vietnamese name in topic_vi. If unknown, set topic_vi to null.
+9. topic: SHOULD be one of the available topics in your system: {topics}. Use the topic code (e.g., "algebra", "calculus"). If the question doesn't match any available topic, choose the closest one or create a new snake_case topic code. Always return its vietnamese name in topic_vi. If unknown, set topic_vi to null.
 10. answers:
     - For multiple_choice, selection, true_false: return JSON array of {{"value": "...", "is_correct": true|false}}. Strip leading option letters (A., B., etc.). Mark exactly ONE answer as is_correct: true.
     - For short_answer, essay: return JSON array with ONE item {{"value": "...", "is_correct": true}} representing the correct answer, or null if unknown.
@@ -83,6 +83,7 @@ STRICT RULES:
 11. image_list: JSON array of image/table references tied to this question, or [] if none.
 12. Composite/Sub-questions: For shared stems, use "composite" type. Put the shared context in `question_text`. Sub-questions MUST have: {{"sub_question_text": "...", "question_type": "...", "answers": [...|null], "image_list": []}}.
 13. If overlap_content is provided, use it for context only. Do NOT re-extract questions solely from it.
+14. Also normalize broken latex or html in the question text if needed, but do not add any formatting that is not present in the original markdown.
 
 Current page markdown:
 [START OVERLAP CONTENT]

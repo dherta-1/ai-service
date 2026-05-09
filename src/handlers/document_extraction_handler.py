@@ -36,7 +36,9 @@ class DocumentExtractionHandler(BaseEventHandler):
         return "document_extraction_requested"
 
     def __init__(self):
-        from src.services.core.document_extraction_service import DocumentExtractionService
+        from src.services.core.document_extraction_service import (
+            DocumentExtractionService,
+        )
         from src.lib.event_bus.kafka.producer import KafkaProducerImpl
         from src.container import get_di_container
         from src.settings import get_settings
@@ -57,6 +59,7 @@ class DocumentExtractionHandler(BaseEventHandler):
 
     def handle(self, key: str, value: Dict[str, Any]) -> None:
         asyncio.run(self._handle_async(value))
+        self._kafka_producer.flush()  # Ensure all messages are sent after handling the event
 
     async def _handle_async(self, value: Dict[str, Any]) -> None:
         from src.repos.document_repo import DocumentRepository
@@ -86,7 +89,9 @@ class DocumentExtractionHandler(BaseEventHandler):
             if self._s3_bucket:
                 file_metadata = file_meta_repo.get_by_id(document.file_id)
                 if not file_metadata or not file_metadata.object_key:
-                    raise ValueError(f"File metadata not found for document {document_id}")
+                    raise ValueError(
+                        f"File metadata not found for document {document_id}"
+                    )
 
                 await asyncio.to_thread(
                     self._s3_client.download_file,
@@ -114,7 +119,11 @@ class DocumentExtractionHandler(BaseEventHandler):
                         "page_id": str(result.page.id),
                         "task_id": str(task.id),
                         "is_final_page": result.is_final,
-                        "uploaded_by_id": str(document.uploaded_by_id) if document.uploaded_by_id else None,
+                        "uploaded_by_id": (
+                            str(document.uploaded_by_id)
+                            if document.uploaded_by_id
+                            else None
+                        ),
                     },
                     topic="question_extraction_requested",
                 )

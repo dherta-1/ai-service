@@ -14,6 +14,7 @@ from src.shared.constants.question import DifficultyLevel, QuestionType, Subject
 from src.settings import get_settings
 from src.prompts.question_extraction_prompt import question_extraction_prompt_template
 from src.shared.helpers.debug_export import export_pipeline_debug
+from src.repos.topic_repo import TopicRepository
 
 logger = logging.getLogger(__name__)
 
@@ -55,6 +56,7 @@ class QuestionExtractionPipeline(
     def __init__(self, llm_client):
         self.llm_client = llm_client
         self.prompt_template_base = question_extraction_prompt_template
+        self._topic_repo = TopicRepository()
 
     def validate(self, payload: QuestionExtractionInput) -> None:
         """Validate input payload."""
@@ -113,15 +115,21 @@ class QuestionExtractionPipeline(
         # Build overlap section for the prompt
         overlap_section = ""
         if overlap_content and isinstance(overlap_content, dict):
-            previous_page = overlap_content.get("previous_page", page_number - 1)
+            # previous_page = overlap_content.get("previous_page", page_number - 1)
             overlap_text = (overlap_content.get("content") or "").strip()
             if overlap_text:
-                overlap_section = f"\nOverlap content from page {previous_page} (to resolve questions spanning pages):\n{overlap_text}"
+                overlap_section = overlap_text[-1000:]
 
         # Build injected variables
         question_types = ", ".join([f'"{qt.value}"' for qt in QuestionType])
         difficulty_levels = ", ".join([f'"{dl.value}"' for dl in DifficultyLevel])
         subjects = ", ".join([f'"{s.value}"' for s in Subject])
+        all_topics = self._topic_repo.filter()
+        topics_list = ", ".join(
+            [f'"{t.code}" ({t.name_vi or t.name})' for t in all_topics]
+        )
+        if not topics_list:
+            topics_list = "No topics configured yet"
 
         prompt = self.prompt_template_base.format(
             markdown_content=markdown_content,
@@ -129,6 +137,7 @@ class QuestionExtractionPipeline(
             question_types=question_types,
             difficulty_levels=difficulty_levels,
             subjects=subjects,
+            topics=topics_list,
         )
 
         try:

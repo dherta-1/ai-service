@@ -6,6 +6,7 @@ from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from src.container import get_di_container
 from src.entities.user import User
@@ -20,6 +21,7 @@ from src.dtos.exam.req import (
 )
 from src.services.exam_service import ExamService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
+from src.services.core.exam_instance_export_service import ExamInstanceExportService
 from src.services.core.variant_exam_generation_service import VariantExamGenerationService
 from src.shared.helpers.dto_utils import to_dict
 from src.shared.response.response_models import create_response, create_paginated_response
@@ -38,6 +40,10 @@ def get_base_service() -> BaseExamGenerationService:
 
 def get_variant_service() -> VariantExamGenerationService:
     return get_di_container().resolve(VariantExamGenerationService)
+
+
+def get_export_service() -> ExamInstanceExportService:
+    return get_di_container().resolve(ExamInstanceExportService)
 
 
 # ------------------------------------------------------------------
@@ -362,3 +368,85 @@ async def generate_versions(
         )
     except ValueError as exc:
         raise BadRequestException(str(exc))
+
+
+# ------------------------------------------------------------------
+# Export
+# ------------------------------------------------------------------
+
+@router.get("/instances/{exam_id}/export")
+async def export_exam_instance(
+    exam_id: UUID,
+    school_name: str = Query(default="TRƯỜNG ĐẠI HỌC", description="School / institution name for header"),
+    subject_label: str = Query(default="", description="Subject display name"),
+    duration_minutes: int = Query(default=90, description="Exam duration in minutes"),
+    include_answer_key: bool = Query(default=True, description="Append answer key page"),
+    force_regenerate: bool = Query(default=False, description="Re-build PDF even if already exported"),
+    current_user: User = Depends(get_current_user),
+    exam_service: ExamService = Depends(get_exam_service),
+    export_service: ExamInstanceExportService = Depends(get_export_service),
+):
+    """Export an exam instance as a downloadable PDF.
+
+    Streams the PDF directly. First call builds and caches; subsequent calls
+    return the cached file unless force_regenerate=true.
+
+    - Admin: can export any exam
+    - Non-admin: can only export their own exams
+    """
+    exam = exam_service.get_exam_instance(exam_id)
+    if not exam:
+        raise NotFoundException("Exam instance not found")
+
+    if current_user.role != "admin" and exam.created_by_id != current_user.id:
+        raise NotFoundException("Exam instance not found")
+
+    try:
+        pdf_bytes, file_id = await export_service.export(
+            exam_id=exam_id,
+            school_name=school_name,
+            subject_label=subject_label,
+            duration_minutes=duration_minutes,
+            include_answer_key=include_answer_key,
+            force_regenerate=force_regenerate,
+        )
+        exam_code = exam.exam_test_code or str(exam_id)
+        return Response(
+            content=pdf_bytes,
+            media_type="application/pdf",
+            headers={
+                "Content-Disposition": f'attachment; filename="{exam_code}.pdf"',
+                "X-File-Id": file_id,
+            },
+        )
+    except ValueError as exc:
+        raise BadRequestException(str(exc))
+
+
+@router.get("/instances/{exam_id}/export/url")
+async def get_exam_export_url(
+    exam_id: UUID,
+    expires_in: int = Query(default=3600, description="Presigned URL expiry in seconds"),
+    current_user: User = Depends(get_current_user),
+    exam_service: ExamService = Depends(get_exam_service),
+    export_service: ExamInstanceExportService = Depends(get_export_service),
+):
+    """Get a presigned download URL for an already-exported exam PDF.
+
+    Returns 404 if the exam has not been exported yet (call /export first).
+    """
+    exam = exam_service.get_exam_instance(exam_id)
+    if not exam:
+        raise NotFoundException("Exam instance not found")
+
+    if current_user.role != "admin" and exam.created_by_id != current_user.id:
+        raise NotFoundException("Exam instance not found")
+
+    url = export_service.get_download_url(exam_id=exam_id, expires_in=expires_in)
+    if not url:
+        raise NotFoundException("Exam has not been exported yet. Call /export first.")
+
+    return create_response(
+        data={"presigned_url": url, "expires_in": expires_in},
+        message="Export URL retrieved successfully",
+    )

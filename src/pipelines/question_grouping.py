@@ -51,7 +51,7 @@ class QuestionGroupingPipeline(BasePipeline):
         }
     """
 
-    def __init__(self, similarity_threshold: float = 0.75):
+    def __init__(self, similarity_threshold: float = 0.5):
         self._repo = QuestionGroupRepository()
         self._threshold = similarity_threshold
 
@@ -115,7 +115,9 @@ class QuestionGroupingPipeline(BasePipeline):
         Groups are scoped per user - only reuse groups created by the same uploader.
         """
         # Step 1: Filter candidates by taxonomy and user
-        candidates = self._repo.find_by_metadata(subject, topic, difficulty, from_user_id=uploaded_by_id)
+        candidates = self._repo.find_by_metadata(
+            subject, topic, difficulty, from_user_id=uploaded_by_id
+        )
 
         # Step 2: Search candidates by vector similarity
         if candidates and vector:
@@ -133,7 +135,9 @@ class QuestionGroupingPipeline(BasePipeline):
                 )
                 return best
 
-        group = self._repo.create_with_vector(subject, topic, difficulty, vector or [], from_user_id=uploaded_by_id)
+        group = self._repo.create_with_vector(
+            subject, topic, difficulty, vector or [], from_user_id=uploaded_by_id
+        )
         logger.debug(
             "Created new QuestionGroup %s for %s/%s/%s",
             group.id,

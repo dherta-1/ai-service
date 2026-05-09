@@ -72,6 +72,17 @@ class S3Client:
             logger.error("S3 upload_file_bytes failed: %s", e)
             raise
 
+    def download_file_bytes(self, bucket: str, key: str) -> bytes:
+        """Download S3 object and return its content as bytes."""
+        try:
+            response = self.client.get_object(Bucket=bucket, Key=key)
+            data = response["Body"].read()
+            logger.info("Downloaded %d bytes from s3://%s/%s", len(data), bucket, key)
+            return data
+        except (BotoCoreError, ClientError) as e:
+            logger.error("S3 download_file_bytes failed: %s", e)
+            raise
+
     def download_file(self, bucket: str, key: str, target_path: str) -> None:
         try:
             self.client.download_file(bucket, key, target_path)

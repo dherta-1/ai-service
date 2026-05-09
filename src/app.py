@@ -34,6 +34,8 @@ from src.routes.page_route import router as page_router
 from src.routes.question_route import router as question_router
 from src.routes.task_route import router as task_router
 from src.routes.user_route import router as user_router
+from src.routes.subject_route import router as subject_router
+from src.routes.topic_route import router as topic_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
 
@@ -45,9 +47,12 @@ from src.services.task_service import TaskService
 from src.services.question_service import QuestionService
 from src.services.page_service import PageService
 from src.services.user_service import UserService
+from src.services.subject_service import SubjectService
+from src.services.topic_service import TopicService
 from src.services.core.document_extraction_service import DocumentExtractionService
 from src.services.core.question_extraction_service import QuestionExtractionService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
+from src.services.core.exam_instance_export_service import ExamInstanceExportService
 from src.services.core.variant_exam_generation_service import (
     VariantExamGenerationService,
 )
@@ -164,6 +169,8 @@ def setup_di_container() -> None:
     container.register_singleton("question_service", QuestionService())
     container.register_singleton("page_service", PageService())
     container.register_singleton("exam_service", ExamService())
+    container.register_singleton("subject_service", SubjectService(SubjectRepository()))
+    container.register_singleton("topic_service", TopicService(TopicRepository()))
 
     # Register core extraction services as factories (non-singleton)
     container.register_type(
@@ -181,6 +188,17 @@ def setup_di_container() -> None:
         QuestionExtractionService,
         lambda: QuestionExtractionService(llm_client=container.get("llm_client")),
         singleton=False,
+    )
+
+    # Register exam export service
+    container.register_type(
+        ExamInstanceExportService,
+        lambda: ExamInstanceExportService(
+            s3_client=container.get("s3_client"),
+            s3_bucket=s3_bucket or "",
+            exam_service=container.get("exam_service"),
+            file_service=container.get("file_service"),
+        ),
     )
 
     # Register exam generation services as singletons
@@ -316,6 +334,8 @@ def create_app() -> FastAPI:
     app.include_router(exam_router, prefix="/exams", tags=["exam"])
     app.include_router(page_router, prefix="/pages", tags=["pages"])
     app.include_router(question_router, prefix="/questions", tags=["questions"])
+    app.include_router(subject_router, prefix="/subjects", tags=["subjects"])
+    app.include_router(topic_router, prefix="/topics", tags=["topics"])
 
     @app.get("/")
     async def root():

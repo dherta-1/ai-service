@@ -70,7 +70,7 @@ class Settings(BaseSettings):
     )
     cors_allow_credentials: bool = Field(default=True, env="CORS_ALLOW_CREDENTIALS")
     cors_allow_methods: str = Field(
-        default="GET,POST,PUT,DELETE,OPTIONS", env="CORS_ALLOW_METHODS"
+        default="GET,POST,PUT,DELETE,PATCH,OPTIONS", env="CORS_ALLOW_METHODS"
     )
     cors_allow_headers: str = Field(
         default="Authorization,Content-Type,Accept", env="CORS_ALLOW_HEADERS"
@@ -79,7 +79,9 @@ class Settings(BaseSettings):
     # JWT
     jwt_secret_key: str = Field(default="change-me-in-production", env="JWT_SECRET_KEY")
     jwt_algorithm: str = Field(default="HS256", env="JWT_ALGORITHM")
-    access_token_expire_minutes: int = Field(default=15, env="ACCESS_TOKEN_EXPIRE_MINUTES")
+    access_token_expire_minutes: int = Field(
+        default=15, env="ACCESS_TOKEN_EXPIRE_MINUTES"
+    )
     refresh_token_expire_days: int = Field(default=7, env="REFRESH_TOKEN_EXPIRE_DAYS")
 
     # Email / SMTP

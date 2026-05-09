@@ -50,7 +50,10 @@ async def queue_documents_for_extraction(
                 continue
 
             # Check authorization: admin or document owner
-            if current_user.role != Role.admin.value and document.uploaded_by_id != current_user.id:
+            if (
+                current_user.role != Role.admin.value
+                and document.uploaded_by_id != current_user.id
+            ):
                 errors.append(
                     {
                         "document_id": str(doc_id),
@@ -80,7 +83,7 @@ async def queue_documents_for_extraction(
             )
 
             queued.append(str(doc_id))
-
+            kafka_producer.flush()  # Ensure the message is sent immediately
         except Exception as e:
             errors.append({"document_id": str(doc_id), "error": str(e)})
 

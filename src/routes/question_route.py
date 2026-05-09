@@ -19,42 +19,6 @@ def get_question_service() -> QuestionService:
     return get_di_container().resolve(QuestionService)
 
 
-@router.get("/page/{page_id}")
-async def get_questions_by_page(
-    page_id: UUID,
-    page: int = Query(1, ge=1),
-    page_size: int = Query(10, ge=1, le=100),
-    service: QuestionService = Depends(get_question_service),
-):
-    """Get top-level questions for a page."""
-    questions = service.get_by_page(page_id)
-    offset = (page - 1) * page_size
-    return create_paginated_response(
-        data=[QuestionListResponse.model_validate(q).model_dump() for q in questions[offset : offset + page_size]],
-        total=len(questions),
-        page=page,
-        per_page=page_size,
-        message="Questions retrieved successfully",
-    )
-
-
-@router.get("/{question_id}")
-async def get_question(
-    question_id: UUID,
-    service: QuestionService = Depends(get_question_service),
-):
-    """Get a question with its answers and sub-questions."""
-    question, answers = service.get_with_answers(question_id)
-    if not question:
-        raise NotFoundException("Question not found")
-
-    sub_questions = service.get_sub_questions(question_id)
-    data = QuestionDetailResponse.model_validate(question).model_dump()
-    data["answers"] = [to_dict(a) for a in answers]
-    data["sub_questions"] = [QuestionListResponse.model_validate(sq).model_dump() for sq in sub_questions]
-    return create_response(data=data, message="Question retrieved successfully")
-
-
 @router.get("")
 async def list_questions(
     search: Optional[str] = Query(None),
@@ -94,6 +58,47 @@ async def list_questions(
         per_page=page_size,
         message="Questions retrieved successfully",
     )
+
+
+@router.get("/page/{page_id}")
+async def get_questions_by_page(
+    page_id: UUID,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
+    service: QuestionService = Depends(get_question_service),
+):
+    """Get top-level questions for a page."""
+    questions = service.get_by_page(page_id)
+    offset = (page - 1) * page_size
+    return create_paginated_response(
+        data=[
+            QuestionListResponse.model_validate(q).model_dump()
+            for q in questions[offset : offset + page_size]
+        ],
+        total=len(questions),
+        page=page,
+        per_page=page_size,
+        message="Questions retrieved successfully",
+    )
+
+
+@router.get("/{question_id}")
+async def get_question(
+    question_id: UUID,
+    service: QuestionService = Depends(get_question_service),
+):
+    """Get a question with its answers and sub-questions."""
+    question, answers = service.get_with_answers(question_id)
+    if not question:
+        raise NotFoundException("Question not found")
+
+    sub_questions = service.get_sub_questions(question_id)
+    data = QuestionDetailResponse.model_validate(question).model_dump()
+    data["answers"] = [to_dict(a) for a in answers]
+    data["sub_questions"] = [
+        QuestionListResponse.model_validate(sq).model_dump() for sq in sub_questions
+    ]
+    return create_response(data=data, message="Question retrieved successfully")
 
 
 @router.patch("/{question_id}/status")
