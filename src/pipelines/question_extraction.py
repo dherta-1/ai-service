@@ -15,6 +15,7 @@ from src.settings import get_settings
 from src.prompts.question_extraction_prompt import question_extraction_prompt_template
 from src.shared.helpers.debug_export import export_pipeline_debug
 from src.repos.topic_repo import TopicRepository
+from src.shared.helpers.latex_normalizer import normalize_question_latex
 
 logger = logging.getLogger(__name__)
 
@@ -389,22 +390,36 @@ class QuestionExtractionPipeline(
     @staticmethod
     def _normalize_backslashes(text: str) -> str:
         """Normalize unescaped backslashes in JSON strings.
-        
-        Escapes backslashes that are not part of valid JSON escape sequences.
+
+        Escapes backslashes that are not part of valid JSON escape sequences
+        or LaTeX commands (which are preserved as-is).
+
         Valid JSON escapes: \", \\, \\/, \b, \f, \n, \r, \t, \\uXXXX
-        
+        LaTeX commands: preserved as-is (e.g., \frac, \sin, \left, etc.)
+
         Args:
             text: Raw JSON text potentially containing unescaped backslashes
-            
+
         Returns:
             Text with unescaped backslashes properly escaped as \\
         """
         # Replace backslashes that are:
         # 1. NOT preceded by another backslash (negative lookbehind: (?<!\\))
-        # 2. NOT followed by valid JSON escape characters (negative lookahead: (?![\"\\\/bfnrtu]))
-        # This prevents double-escaping already-escaped backslashes like \\frac
-        normalized = re.sub(r"(?<!\\)\\(?![\"\\\/bfnrtu])", r"\\\\", text)
+        # 2. NOT followed by:
+        #    - Valid JSON escape characters: \" \\ \/ \b \f \n \r \t \u
+        #    - LaTeX letter commands: \sin, \cos, \frac, \left, \right, etc.
+        #      (recognized by letter or specific multi-letter sequences)
+        normalized = re.sub(
+            r"(?<!\\)\\(?![\"\\\/bfnrtu]|[a-zA-Z])",
+            r"\\\\",
+            text
+        )
         return normalized
+
+    @staticmethod
+    def _remove_dh_image_tags(text: str) -> str:
+        """Remove <dh-image>...</dh-image> nesting from text."""
+        return re.sub(r'<dh-image>.*?</dh-image>', '', text, flags=re.DOTALL).strip()
 
     @classmethod
     def _normalize_questions(cls, questions_raw: Any) -> list[ExtractedQuestion]:
@@ -419,6 +434,12 @@ class QuestionExtractionPipeline(
             question_text = str(item.get("question_text") or "").strip()
             if not question_text:
                 continue
+
+            # Remove image tags
+            question_text = cls._remove_dh_image_tags(question_text)
+
+            # Normalize LaTeX content to fix broken commands
+            question_text = normalize_question_latex(question_text)
 
             question_type = cls._normalize_question_type(item.get("question_type"))
             difficulty = cls._normalize_difficulty(item.get("difficulty"))
@@ -523,11 +544,20 @@ class QuestionExtractionPipeline(
                 # Already a dict with {value, is_correct} structure
                 answer_val = str(item.get("value", "")).strip()
                 if answer_val:
-                    answers.append(item)
+                    # Remove image tags
+                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(answer_val)
+                    # Normalize LaTeX in answer text
+                    answer_val = normalize_question_latex(answer_val)
+                    normalized_item = {**item, "value": answer_val}
+                    answers.append(normalized_item)
             else:
                 # Plain string value
                 answer_val = str(item).strip()
                 if answer_val:
+                    # Remove image tags
+                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(answer_val)
+                    # Normalize LaTeX in answer text
+                    answer_val = normalize_question_latex(answer_val)
                     answers.append({"value": answer_val, "is_correct": False})
 
         return answers if answers else None
@@ -547,6 +577,12 @@ class QuestionExtractionPipeline(
             ).strip()
             if not sub_question_text:
                 continue
+
+            # Remove image tags
+            sub_question_text = QuestionExtractionPipeline._remove_dh_image_tags(sub_question_text)
+
+            # Normalize LaTeX content in sub-questions
+            sub_question_text = normalize_question_latex(sub_question_text)
 
             question_type = QuestionExtractionPipeline._normalize_question_type(
                 item.get("question_type")

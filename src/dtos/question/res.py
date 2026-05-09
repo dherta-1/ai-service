@@ -65,6 +65,8 @@ class QuestionListResponse(BaseModel):
     sub_question_order: Optional[int] = None
     variant_existence_count: int = 1
     status: int
+    answers: Optional[List[AnswerResponse]] = None
+    sub_questions: Optional[List[SubQuestionResponse]] = None
     created_at: datetime
     updated_at: datetime
 
@@ -75,6 +77,19 @@ class QuestionListResponse(BaseModel):
 class QuestionDetailResponse(QuestionResponse):
     answers: Optional[List[AnswerResponse]] = None
     sub_questions: Optional[List[SubQuestionResponse]] = None
+
+
+class QuestionGroupResponse(BaseModel):
+    id: UUID
+    subject: str
+    topic: str
+    difficulty: str
+    existence_count: int
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class TaskProgressResponse(BaseModel):

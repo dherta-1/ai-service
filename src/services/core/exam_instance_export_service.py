@@ -20,7 +20,7 @@ from src.pipelines.exam_pdf_build_v2 import ExamPdfBuildInput, ExamPdfBuildPipel
 from src.entities.exam_instance import ExamInstance
 from src.entities.file_metadata import FileMetadata
 from src.lib.s3_client import S3Client
-from src.pipelines.exam_pdf_build import ExamPdfBuildPipeline
+from src.lib.playwright import PlaywrightManager
 from src.repos.exam_instance_repo import ExamInstanceRepository
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.services.exam_service import ExamService
@@ -38,11 +38,13 @@ class ExamInstanceExportService:
         s3_bucket: str,
         exam_service: ExamService,
         file_service: FileService,
+        playwright_manager: PlaywrightManager,
     ):
         self._s3 = s3_client
         self._bucket = s3_bucket
         self._exam_service = exam_service
         self._file_service = file_service
+        self._playwright = playwright_manager
         self._instance_repo = ExamInstanceRepository()
         self._file_meta_repo = FileMetadataRepository()
 
@@ -60,12 +62,18 @@ class ExamInstanceExportService:
         force_regenerate: bool = False,
         pdf_version: str = "v2",
     ) -> tuple[bytes, str]:
-        """Export exam to PDF.
+        """Export exam to PDF with full regeneration and override.
 
-        If the exam already has an exported file and force_regenerate=False,
-        returns the existing presigned download URL bytes are re-fetched.
+        Always performs a fresh PDF build. If the exam already has an exported file,
+        deletes the old PDF and metadata record before creating a new one.
+
         Args:
-
+            exam_id: UUID of exam instance to export
+            school_name: School/institution name for header
+            subject_label: Subject display name
+            duration_minutes: Exam duration in minutes
+            include_answer_key: Append answer key page
+            force_regenerate: Deprecated (always regenerates now)
             pdf_version: "v1" (reportlab) or "v2" (xhtml2pdf + Jinja2). Default "v2".
 
         Returns:
@@ -75,11 +83,9 @@ class ExamInstanceExportService:
         if not exam:
             raise ValueError(f"Exam instance {exam_id} not found")
 
-        # Re-use existing export if available
-        if exam.is_exported and exam.exported_file_id and not force_regenerate:
-            pdf_bytes = self._download_existing(exam.exported_file_id)
-            if pdf_bytes:
-                return pdf_bytes, exam.exported_file_id
+        # Delete old export if exists
+        if exam.is_exported and exam.exported_file_id:
+            self._delete_old_export(exam.exported_file_id)
 
         # Build fresh
         exam_data = self._exam_service.build_exam_response_data(exam)
@@ -87,7 +93,7 @@ class ExamInstanceExportService:
 
         presigned_urls = self._collect_presigned_urls(exam_data)
 
-        pipeline = ExamPdfBuildPipelineV2()
+        pipeline = ExamPdfBuildPipelineV2(playwright_manager=self._playwright)
 
         pdf_bytes = await pipeline.run(
             ExamPdfBuildInput(
@@ -191,3 +197,31 @@ class ExamInstanceExportService:
         except Exception as exc:
             logger.warning("Could not re-download existing export %s: %s", file_id, exc)
             return None
+
+    def _delete_old_export(self, file_id: str) -> None:
+        """Delete old exported PDF file and its metadata record."""
+        try:
+            file_meta = self._file_meta_repo.get_by_id(UUID(file_id))
+            if file_meta and file_meta.object_key:
+                # Delete from S3
+                try:
+                    self._s3.delete_file(bucket=self._bucket, key=file_meta.object_key)
+                    logger.info(
+                        "Deleted old exam PDF from s3://%s/%s",
+                        self._bucket,
+                        file_meta.object_key,
+                    )
+                except Exception as exc:
+                    logger.warning(
+                        "Could not delete old S3 file %s: %s", file_meta.object_key, exc
+                    )
+
+                # Delete metadata record
+                if self._file_meta_repo.delete_by_id(UUID(file_id)):
+                    logger.info("Deleted file metadata record %s", file_id)
+                else:
+                    logger.warning("Could not delete file metadata record %s", file_id)
+            else:
+                logger.warning("File metadata %s not found for deletion", file_id)
+        except Exception as exc:
+            logger.warning("Error deleting old export %s: %s", file_id, exc)

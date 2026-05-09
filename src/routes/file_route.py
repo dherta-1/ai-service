@@ -86,4 +86,41 @@ async def get_file_download_url(
     )
 
 
+# ------------------------------------------------------------------
+# File Upload
+# ------------------------------------------------------------------
+
+from fastapi import UploadFile, File
+from src.shared.response.exception_handler import BadRequestException
+
+
+@router.post("/upload")
+async def upload_file(
+    file: UploadFile = File(...),
+    service: FileService = Depends(get_file_service),
+):
+    """Upload a file. Returns file_id and presigned URL.
+
+    Supports any file type and stores in S3 with appropriate categorization.
+    """
+    try:
+        # Read file content
+        content = await file.read()
+
+        # Upload via service
+        result = service.upload_file(
+            file_content=content,
+            filename=file.filename or "unknown",
+            content_type=file.content_type or "application/octet-stream",
+        )
+
+        return create_response(
+            data=result,
+            message="File uploaded successfully",
+        )
+    except ValueError as exc:
+        raise BadRequestException(str(exc))
+    except Exception as exc:
+        raise BadRequestException(f"Failed to upload file: {str(exc)}")
+
 

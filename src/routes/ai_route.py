@@ -1,3 +1,4 @@
+import logging
 from typing import List
 from uuid import UUID
 from fastapi import APIRouter, Depends, Body, status
@@ -5,12 +6,18 @@ from fastapi import APIRouter, Depends, Body, status
 from src.container import get_di_container
 from src.lib.event_bus.kafka.producer import KafkaProducerImpl
 from src.services.document_service import DocumentService
+from src.services.core.generate_similar_questions_service import (
+    GenerateSimilarQuestionsService,
+)
 from src.shared.constants.general import Status
 from src.shared.response.response_models import create_response
 from src.shared.auth_deps import get_current_user
-from src.shared.response.exception_handler import ForbiddenException, NotFoundException
+from src.shared.response.exception_handler import NotFoundException
+from src.dtos.ai.req import GenerateSimilarQuestionsRequest
 from src.entities.user import User
 from src.shared.constants.user import Role
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -21,6 +28,11 @@ def get_document_service() -> DocumentService:
 
 def get_kafka_producer() -> KafkaProducerImpl:
     return get_di_container().resolve(KafkaProducerImpl)
+
+
+def get_similar_questions_service() -> GenerateSimilarQuestionsService:
+    llm_client = get_di_container().get("llm_client")
+    return GenerateSimilarQuestionsService(llm_client=llm_client)
 
 
 @router.post("/queue", status_code=status.HTTP_202_ACCEPTED)
@@ -91,3 +103,37 @@ async def queue_documents_for_extraction(
         data={"queued": queued, "errors": errors},
         message=f"Queued {len(queued)} documents for extraction",
     )
+
+
+@router.post("/generate-similar-questions", status_code=status.HTTP_200_OK)
+async def generate_similar_questions(
+    request: GenerateSimilarQuestionsRequest,
+    service: GenerateSimilarQuestionsService = Depends(get_similar_questions_service),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Generate similar questions using RAG pattern.
+
+    Takes a question_id and performs:
+    1. Vector search for similar question groups
+    2. Selects reference questions with lowest variant_existence_count
+    3. Generates new questions via LLM (no persistence)
+
+    Returns:
+    {
+        base_question: {...},
+        generated_questions: [...],
+        total_generated: int
+    }
+    """
+    try:
+        result = await service.generate_similar_questions(
+            question_id=request.question_id,
+            k=request.k,
+            vector_threshold=request.vector_threshold,
+        )
+        return create_response(data=result, message="Generated similar questions")
+    except ValueError as e:
+        raise NotFoundException(str(e))
+    except Exception as e:
+        logger.exception("Error generating similar questions")
+        raise ValueError(f"Failed to generate questions: {str(e)}")

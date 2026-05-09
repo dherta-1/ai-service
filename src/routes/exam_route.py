@@ -381,15 +381,17 @@ async def export_exam_instance(
     subject_label: str = Query(default="", description="Subject display name"),
     duration_minutes: int = Query(default=90, description="Exam duration in minutes"),
     include_answer_key: bool = Query(default=True, description="Append answer key page"),
-    force_regenerate: bool = Query(default=False, description="Re-build PDF even if already exported"),
+    force_regenerate: bool = Query(default=False, description="Deprecated - always performs full export"),
     current_user: User = Depends(get_current_user),
     exam_service: ExamService = Depends(get_exam_service),
     export_service: ExamInstanceExportService = Depends(get_export_service),
 ):
-    """Export an exam instance as a downloadable PDF.
+    """Export an exam instance as a downloadable PDF with full regeneration.
 
-    Streams the PDF directly. First call builds and caches; subsequent calls
-    return the cached file unless force_regenerate=true.
+    Always performs a fresh PDF build. If the exam was previously exported,
+    the old PDF and its metadata are deleted before creating the new one.
+
+    Streams the PDF directly.
 
     - Admin: can export any exam
     - Non-admin: can only export their own exams

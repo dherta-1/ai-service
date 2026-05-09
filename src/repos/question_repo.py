@@ -113,3 +113,71 @@ class QuestionRepository(BaseRepo[Question]):
         if status is not None:
             query = query.where(Question.status == status)
         return query.count()
+
+    def find_filtered_by_user(
+        self,
+        user_id: UUID,
+        search_query: Optional[str] = None,
+        subject: Optional[str] = None,
+        topic: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
+        status: Optional[int] = None,
+        offset: int = 0,
+        limit: int = 20,
+    ) -> List[Question]:
+        from src.entities.question_group import QuestionGroup
+        query = (
+            Question.select()
+            .join(QuestionGroup, on=(Question.questions_group == QuestionGroup.id))
+            .where(
+                (Question.parent_question.is_null())
+                & (QuestionGroup.from_user == user_id)
+            )
+        )
+        if search_query:
+            query = query.where(Question.question_text.contains(search_query))
+        if subject:
+            query = query.where(Question.subject == subject)
+        if topic:
+            query = query.where(Question.topic == topic)
+        if difficulty:
+            query = query.where(Question.difficulty == difficulty)
+        if question_type:
+            query = query.where(Question.question_type == question_type)
+        if status is not None:
+            query = query.where(Question.status == status)
+        return list(query.offset(offset).limit(limit))
+
+    def count_filtered_by_user(
+        self,
+        user_id: UUID,
+        search_query: Optional[str] = None,
+        subject: Optional[str] = None,
+        topic: Optional[str] = None,
+        difficulty: Optional[str] = None,
+        question_type: Optional[str] = None,
+        status: Optional[int] = None,
+    ) -> int:
+        from src.entities.question_group import QuestionGroup
+        query = (
+            Question.select()
+            .join(QuestionGroup, on=(Question.questions_group == QuestionGroup.id))
+            .where(
+                (Question.parent_question.is_null())
+                & (QuestionGroup.from_user == user_id)
+            )
+        )
+        if search_query:
+            query = query.where(Question.question_text.contains(search_query))
+        if subject:
+            query = query.where(Question.subject == subject)
+        if topic:
+            query = query.where(Question.topic == topic)
+        if difficulty:
+            query = query.where(Question.difficulty == difficulty)
+        if question_type:
+            query = query.where(Question.question_type == question_type)
+        if status is not None:
+            query = query.where(Question.status == status)
+        return query.count()

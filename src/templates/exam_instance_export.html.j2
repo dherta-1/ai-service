@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- KaTeX -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"
+          onload="renderMathInElement(document.body, {
+            delimiters: [
+              {left: '$$', right: '$$', display: true},
+              {left: '\\[', right: '\\]', display: true},
+              {left: '$', right: '$', display: false},
+              {left: '\\(', right: '\\)', display: false}
+            ],
+            throwOnError: false
+          });"></script>
+
+  <style>
+    @page { size: A4; margin: 2.2cm 2.5cm; }
+
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: "Times New Roman", Times, serif;
+      font-size: 11pt;
+      line-height: 1.6;
+      color: #111;
+      margin: 0;
+      padding: 0;
+    }
+
+    /* Header */
+    .header {
+      text-align: center;
+      border-bottom: 2px solid #000;
+      padding-bottom: 10px;
+      margin-bottom: 14px;
+    }
+    .school-name { font-size: 13pt; font-weight: bold; margin: 0 0 2px; }
+    .exam-title  { font-size: 16pt; font-weight: bold; margin: 4px 0; text-transform: uppercase; letter-spacing: 1px; }
+    .exam-meta   { font-size: 10pt; color: #333; margin: 3px 0; }
+    .exam-code   { font-size: 12pt; font-weight: bold; margin: 4px 0 0; letter-spacing: 2px; }
+
+    /* Sections */
+    .section { margin-top: 16px; }
+    .section-title {
+      font-weight: bold;
+      font-size: 11.5pt;
+      border-bottom: 1px solid #888;
+      padding-bottom: 3px;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+    }
+
+    /* Questions */
+    .question-block {
+      margin-bottom: 12px;
+      page-break-inside: avoid;
+    }
+    .question-text { text-align: justify; margin-bottom: 5px; }
+
+    /* Images */
+    .question-images { margin: 6px 0; text-align: center; }
+    .question-images img {
+      max-width: 60%;
+      max-height: 200px;
+      margin: 3px 6px;
+      display: inline-block;
+    }
+
+    /* MC answers — 2-column grid */
+    .answers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 16px;
+      margin: 4px 0 4px 24px;
+    }
+    .answer-choice { display: flex; gap: 4px; }
+
+    /* Short answer / essay */
+    .answer-blank {
+      margin: 4px 0 4px 24px;
+      font-style: italic;
+      color: #555;
+    }
+    .essay-lines { margin: 4px 0 4px 24px; }
+    .essay-line {
+      border-bottom: 1px solid #bbb;
+      height: 22px;
+      margin-bottom: 4px;
+    }
+
+    /* Composite sub-questions */
+    .sub-question {
+      margin: 5px 0 5px 28px;
+      page-break-inside: avoid;
+    }
+    .sub-question-text { margin-bottom: 3px; }
+    .sub-answers-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 16px;
+      margin-left: 16px;
+    }
+
+    /* Footer */
+    .exam-footer {
+      text-align: center;
+      margin-top: 20px;
+      font-style: italic;
+      color: #666;
+      font-size: 10pt;
+    }
+
+    /* Answer key */
+    .answer-key-page {
+      page-break-before: always;
+      padding-top: 4px;
+    }
+    .answer-key-title {
+      text-align: center;
+      font-size: 14pt;
+      font-weight: bold;
+      border-bottom: 2px solid #000;
+      padding-bottom: 8px;
+      margin-bottom: 14px;
+      text-transform: uppercase;
+    }
+    .answer-key-section { margin-bottom: 12px; }
+    .answer-key-section-title {
+      font-weight: bold;
+      font-size: 10.5pt;
+      margin-bottom: 5px;
+    }
+    .answer-key-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 3px 10px;
+    }
+    .answer-key-item { font-size: 10pt; }
+
+    /* KaTeX display math centering */
+    .katex-display { margin: 4px 0; }
+  </style>
+</head>
+<body>
+
+{# ── HEADER ── #}
+<div class="header">
+  <p class="school-name">{{ school_name | e }}</p>
+  <p class="exam-title">Đề Kiểm Tra / Đề Thi</p>
+  <p class="exam-meta">
+    {% if subject_label %}Môn: <strong>{{ subject_label | e }}</strong> &nbsp;·&nbsp; {% endif %}
+    Thời gian: <strong>{{ duration_minutes }} phút</strong>
+    &nbsp;·&nbsp; Số câu: <strong>{{ total_questions }}</strong>
+  </p>
+  {% if exam_code %}
+  <p class="exam-code">Mã đề: {{ exam_code | e }}</p>
+  {% endif %}
+</div>
+
+{# ── SECTIONS / QUESTIONS ── #}
+{% set q = namespace(n=0) %}
+{% for section in sections %}
+<div class="section">
+  <div class="section-title">{{ section.name | e }}</div>
+
+  {% for question in section.questions %}
+    {% set q.n = q.n + 1 %}
+    <div class="question-block">
+
+      {# Question text — passed raw so KaTeX can parse math #}
+      <div class="question-text">
+        <strong>{{ q.n }}.</strong> {{ question.question_text | e }}
+      </div>
+
+      {# Images #}
+      {% if question.image_data_uris %}
+      <div class="question-images">
+        {% for uri in question.image_data_uris %}
+        <img src="{{ uri }}" alt="question image">
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {# Composite: sub-questions #}
+      {% if question.is_composite %}
+        {% for sq in question.sub_questions %}
+        <div class="sub-question">
+          <div class="sub-question-text">
+            <strong>{{ q.n }}.{{ loop.index }}.</strong> {{ sq.question_text | e }}
+          </div>
+          {% if sq.image_data_uris %}
+          <div class="question-images">
+            {% for uri in sq.image_data_uris %}
+            <img src="{{ uri }}" alt="">
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if sq.answers %}
+          <div class="sub-answers-grid">
+            {% for ans in sq.answers %}
+            <div class="answer-choice"><strong>{{ ans.label }}.</strong>&nbsp;{{ ans.value | e }}</div>
+            {% endfor %}
+          </div>
+          {% elif sq.is_short_answer %}
+          <div class="answer-blank">Trả lời: ___________________________________</div>
+          {% elif sq.is_essay %}
+          <div class="essay-lines">
+            {% for _ in range(4) %}<div class="essay-line"></div>{% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+
+      {# Non-composite answers #}
+      {% elif question.answers %}
+      <div class="answers-grid">
+        {% for ans in question.answers %}
+        <div class="answer-choice"><strong>{{ ans.label }}.</strong>&nbsp;{{ ans.value | e }}</div>
+        {% endfor %}
+      </div>
+      {% elif question.is_short_answer %}
+      <div class="answer-blank">Trả lời: ___________________________________</div>
+      {% elif question.is_essay %}
+      <div class="essay-lines">
+        {% for _ in range(5) %}<div class="essay-line"></div>{% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<div class="exam-footer">— Hết —</div>
+
+{# ── ANSWER KEY ── #}
+{% if include_answer_key %}
+<div class="answer-key-page">
+  <div class="answer-key-title">Bảng Đáp Án / Answer Key</div>
+  {% set ak = namespace(n=0) %}
+  {% for section in sections %}
+  <div class="answer-key-section">
+    <div class="answer-key-section-title">{{ section.name | e }}</div>
+    <div class="answer-key-grid">
+      {% for question in section.questions %}
+        {% set ak.n = ak.n + 1 %}
+        {% if question.is_composite %}
+          {% for sq in question.sub_questions %}
+            {% if sq.correct_label %}
+            <div class="answer-key-item">Câu {{ ak.n }}.{{ loop.index }}: <strong>{{ sq.correct_label }}</strong></div>
+            {% elif sq.correct_text %}
+            <div class="answer-key-item">Câu {{ ak.n }}.{{ loop.index }}: {{ sq.correct_text | e }}</div>
+            {% endif %}
+          {% endfor %}
+        {% elif question.correct_label %}
+          <div class="answer-key-item">Câu {{ ak.n }}: <strong>{{ question.correct_label }}</strong></div>
+        {% elif question.correct_text %}
+          <div class="answer-key-item">Câu {{ ak.n }}: {{ question.correct_text | e }}</div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+</body>
+</html>

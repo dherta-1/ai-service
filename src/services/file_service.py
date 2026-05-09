@@ -3,11 +3,13 @@ from __future__ import annotations
 from typing import Optional, Any
 from uuid import UUID
 import logging
+import uuid
 
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.shared.base.base_service import BaseService
 from src.lib.s3_client import get_s3_client
 from src.settings import get_settings
+from src.entities.file_metadata import FileMetadata
 
 logger = logging.getLogger(__name__)
 
@@ -122,3 +124,69 @@ class FileService(BaseService):
                     "presigned_url_expires_in": expires_in,
                 }
         return result
+
+    def upload_file(
+        self, file_content: bytes, filename: str, content_type: str = "application/octet-stream"
+    ) -> dict[str, Any]:
+        """Upload a file to S3 and create metadata record.
+
+        Args:
+            file_content: File bytes to upload
+            filename: Original filename
+            content_type: MIME type of the file
+
+        Returns:
+            Dict with file_id, filename, and presigned_url
+
+        Raises:
+            ValueError: If S3 bucket not configured or file is empty
+        """
+        if not file_content:
+            raise ValueError("File is empty")
+
+        if not self._s3_bucket:
+            raise ValueError("S3 bucket not configured")
+
+        # Generate unique file ID and object key
+        file_id = str(uuid.uuid4())
+        object_key = f"files/{file_id}_{filename}"
+
+        try:
+            # Upload to S3
+            self._s3_client.upload_file_bytes(
+                file_content=file_content,
+                bucket=self._s3_bucket,
+                key=object_key,
+                content_type=content_type,
+            )
+
+            # Create metadata record in database
+            meta = FileMetadata.create(
+                name=filename,
+                path=object_key,
+                size=len(file_content),
+                mime_type=content_type,
+                object_key=object_key,
+            )
+
+            # Get presigned URL for immediate download
+            presigned_url = self._s3_client.generate_presigned_url(
+                client_method="get_object",
+                Params={
+                    "Bucket": self._s3_bucket,
+                    "Key": object_key,
+                },
+                ExpiresIn=3600,
+            )
+
+            logger.info(f"File uploaded successfully: {meta.id}")
+
+            return {
+                "file_id": str(meta.id),
+                "filename": filename,
+                "url": presigned_url,
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to upload file: {str(e)}")
+            raise

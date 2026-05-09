@@ -1,7 +1,13 @@
+import asyncio
 import logging
 import argparse
+import platform
 import sys
 from typing import Literal
+
+# Must be set before any event loop is created (required for Playwright on Windows)
+if platform.system() == "Windows":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 logging.basicConfig(
     level=logging.INFO,
@@ -32,6 +38,7 @@ def run_document_extraction_worker() -> None:
     """Run the document extraction event worker."""
     logger.info("Starting document extraction worker...")
     from src.workers.document_extraction_worker import main as worker_main
+
     worker_main()
 
 
@@ -39,6 +46,7 @@ def run_questions_extraction_worker() -> None:
     """Run the questions extraction event worker."""
     logger.info("Starting questions extraction worker...")
     from src.workers.questions_extraction_worker import main as worker_main
+
     worker_main()
 
 

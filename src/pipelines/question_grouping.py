@@ -120,7 +120,7 @@ class QuestionGroupingPipeline(BasePipeline):
         )
 
         # Step 2: Search candidates by vector similarity
-        if candidates and vector:
+        if candidates and vector is not None:
             matches = self._repo.cosine_search(candidates, vector, threshold)
             if matches:
                 best = matches[0]

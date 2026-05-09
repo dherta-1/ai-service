@@ -13,3 +13,8 @@ class FileMetadataRepository(BaseRepo[FileMetadata]):
 
     def get_by_object_key(self, object_key: str) -> Optional[FileMetadata]:
         return self.filter_one(object_key=object_key)
+
+    def delete_by_id(self, file_id) -> bool:
+        """Delete a file metadata record by ID. Returns True if deleted, False if not found."""
+        result = FileMetadata.delete().where(FileMetadata.id == file_id).execute()
+        return result > 0

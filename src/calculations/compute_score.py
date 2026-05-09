@@ -48,7 +48,7 @@ def compute_score(
     alpha = _RANDOM_LEVEL_ALPHA.get(random_level, 0.5)
 
     sim = 0.0
-    if query_embedding and group_embedding is not None:
+    if query_embedding is not None and group_embedding is not None:
         sim = cosine_similarity(query_embedding, group_embedding)
 
     exist_score = 1.0 / (existence_count + 1) ** alpha

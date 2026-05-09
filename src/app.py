@@ -1,3 +1,12 @@
+import asyncio
+import platform
+
+# Set before any event loop is created. Needed for Playwright subprocess on Windows.
+# With uvicorn --reload, the worker process imports this module directly (not via main.py),
+# so the policy must also be set here.
+if platform.system() == "Windows":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
@@ -25,6 +34,7 @@ from src.llm.base import LLMConfig
 from src.ocr.registry import register_ocr_registry
 from src.ocr.base import OCRConfig
 from src.lib.grpc_server import get_grpc_server_manager
+from src.lib.playwright import PlaywrightManager
 from src.routes.ai_route import router as ai_router
 from src.routes.auth_route import router as auth_router
 from src.routes.document_route import router as document_router
@@ -56,6 +66,7 @@ from src.services.core.exam_instance_export_service import ExamInstanceExportSer
 from src.services.core.variant_exam_generation_service import (
     VariantExamGenerationService,
 )
+from src.services.core.question_mutation_service import QuestionMutationService
 import logging
 from src.entities.answer import Answer
 from src.entities.document import Document
@@ -190,6 +201,10 @@ def setup_di_container() -> None:
         singleton=False,
     )
 
+    # Register Playwright manager as singleton (before exam export service)
+    playwright_manager = PlaywrightManager()
+    container.register_singleton("playwright_manager", playwright_manager)
+
     # Register exam export service
     container.register_type(
         ExamInstanceExportService,
@@ -198,6 +213,7 @@ def setup_di_container() -> None:
             s3_bucket=s3_bucket or "",
             exam_service=container.get("exam_service"),
             file_service=container.get("file_service"),
+            playwright_manager=container.get("playwright_manager"),
         ),
     )
 
@@ -209,6 +225,12 @@ def setup_di_container() -> None:
     container.register_type(
         VariantExamGenerationService,
         lambda: VariantExamGenerationService(llm_client=container.get("llm_client")),
+    )
+
+    # Register question mutation service
+    container.register_type(
+        QuestionMutationService,
+        lambda: QuestionMutationService(llm_client=container.get("llm_client")),
     )
 
     logger.info("DI container initialized")
@@ -282,11 +304,17 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for startup and shutdown"""
     # Startup
     logger.info("Application startup")
+
     setup_di_container()
     setup_database()
 
     settings = get_settings()
     setup_seeds(run_seeds=getattr(settings, "run_seeds", False))
+
+    # Initialize Playwright
+    container = get_di_container()
+    playwright_manager = container.get("playwright_manager")
+    await playwright_manager.initialize()
 
     # Start gRPC server
     grpc_manager = get_grpc_server_manager()
@@ -297,7 +325,7 @@ async def lifespan(app: FastAPI):
     # Shutdown
     logger.info("Application shutdown")
     grpc_manager.stop()
-    container = get_di_container()
+    await playwright_manager.shutdown()
     container.close_all()
 
 
