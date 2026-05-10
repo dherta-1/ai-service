@@ -35,7 +35,7 @@ def build_generate_similar_questions_prompt(
             if ref.get("answers"):
                 reference_section += f"  Answers: {ref.get('answers')}\n"
 
-    prompt = f"""You are an expert educator tasked with generating new exam questions that are semantically similar to a base question.
+    prompt = f"""You are an expert educator tasked with generating new exam questions with different numerical values and problem formulations but testing the same learning objectives as a base question.
 
 ## Base Question (to generate variations for):
 Question: {base_text}
@@ -48,12 +48,21 @@ Answers: {base_answers}
 
 ## Task:
 Generate exactly {num_questions} new questions that:
-1. Share the same semantic meaning and learning objectives as the base question
-2. Have the same question type ({base_type})
-3. Have similar difficulty level ({base_difficulty})
-4. Fall under the same subject ({base_subject}) and topic ({base_topic})
-5. Use different wording and context than the base question and all references
-6. Are distinct from each other
+1. Test the SAME learning objectives and mathematical concepts as the base question
+2. Use DIFFERENT numerical values (change all numbers in the problem)
+3. Use ALTERNATIVE problem formulations and descriptions (rephrase the problem setup differently)
+4. Have the same question type ({base_type})
+5. Have similar difficulty level ({base_difficulty})
+6. Fall under the same subject ({base_subject}) and topic ({base_topic})
+7. Require the same solution method but with different calculations
+8. Are distinct from each other with unique numbers and formulations
+
+## Key Requirements:
+- CRITICAL: Change ALL numerical values in the problem (different limits, coefficients, bases, etc.)
+- Use different wording and context descriptions
+- Maintain the same solution approach and difficulty
+- Each question should be a unique variation, not a rephrasing of the same numbers
+- The answers (numerical results) must be recalculated based on the new numbers
 
 ## Output Format:
 Return a JSON array with exactly {num_questions} objects, each with the following structure:
@@ -71,13 +80,13 @@ Return a JSON array with exactly {num_questions} objects, each with the followin
 
 IMPORTANT:
 - For True/False questions: Include both True and False options, mark exactly one as correct
-- For Multiple Choice: Include 3-4 options, mark exactly one as correct
+- For Multiple Choice: Include 3-4 options with DIFFERENT numerical values than base question answers
 - For Selection: Include multiple correct answers
 - For Short Answer/Essay: Include the expected answer(s) with is_correct: true
 - Ensure all answers follow the exact format: [{{"value": "...", "is_correct": boolean}}]
 - Return ONLY the JSON array, no additional text
 
-Generate the {num_questions} questions now:"""
+Generate the {num_questions} questions with different numbers and alternative formulations now:"""
 
     return prompt
 
@@ -101,7 +110,18 @@ def extract_generated_questions(response_text: str) -> List[Dict]:
         raise ValueError("No JSON array found in LLM response")
 
     json_str = json_match.group(0)
-    questions = json.loads(json_str)
+
+    # Fix common JSON escaping issues with LaTeX and special characters
+    # Replace unescaped backslashes before JSON parsing
+    json_str = json_str.replace('\\"', '"')  # Handle escaped quotes
+    json_str = re.sub(r'(?<!\\)\\(?!["\\/bfnrtu])', r'\\\\', json_str)  # Escape bare backslashes
+
+    try:
+        questions = json.loads(json_str)
+    except json.JSONDecodeError:
+        # If standard parsing fails, try to clean up the string more aggressively
+        json_str = json_str.encode('utf-8', errors='ignore').decode('utf-8')
+        questions = json.loads(json_str)
 
     if not isinstance(questions, list):
         raise ValueError("Expected JSON array in response")

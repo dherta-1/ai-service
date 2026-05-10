@@ -16,6 +16,7 @@ from src.prompts.question_extraction_prompt import question_extraction_prompt_te
 from src.shared.helpers.debug_export import export_pipeline_debug
 from src.repos.topic_repo import TopicRepository
 from src.shared.helpers.latex_normalizer import normalize_question_latex
+from src.shared.helpers.to_latex_table_parser import convert_tables_in_text
 
 logger = logging.getLogger(__name__)
 
@@ -389,13 +390,13 @@ class QuestionExtractionPipeline(
 
     @staticmethod
     def _normalize_backslashes(text: str) -> str:
-        """Normalize unescaped backslashes in JSON strings.
+        r"""Normalize unescaped backslashes in JSON strings.
 
-        Escapes backslashes that are not part of valid JSON escape sequences
-        or LaTeX commands (which are preserved as-is).
+        Escapes backslashes that are not part of valid JSON escape sequences.
+        LaTeX commands within string values need to be escaped for JSON parsing.
 
-        Valid JSON escapes: \", \\, \\/, \b, \f, \n, \r, \t, \\uXXXX
-        LaTeX commands: preserved as-is (e.g., \frac, \sin, \left, etc.)
+        Valid JSON escapes: \", \\, \/, \b, \f, \n, \r, \t, \uXXXX
+        All other backslashes (including LaTeX) must be escaped as \\
 
         Args:
             text: Raw JSON text potentially containing unescaped backslashes
@@ -403,23 +404,56 @@ class QuestionExtractionPipeline(
         Returns:
             Text with unescaped backslashes properly escaped as \\
         """
-        # Replace backslashes that are:
-        # 1. NOT preceded by another backslash (negative lookbehind: (?<!\\))
-        # 2. NOT followed by:
-        #    - Valid JSON escape characters: \" \\ \/ \b \f \n \r \t \u
-        #    - LaTeX letter commands: \sin, \cos, \frac, \left, \right, etc.
-        #      (recognized by letter or specific multi-letter sequences)
-        normalized = re.sub(
-            r"(?<!\\)\\(?![\"\\\/bfnrtu]|[a-zA-Z])",
-            r"\\\\",
-            text
-        )
-        return normalized
+        # First pass: escape all unescaped backslashes that are NOT part of
+        # valid JSON escape sequences (\", \\, \/, \b, \f, \n, \r, \t, \uXXXX)
+        # This includes ALL LaTeX commands which must be escaped in JSON strings
+
+        result = []
+        i = 0
+        while i < len(text):
+            if text[i] == "\\":
+                # Check if this is an already-escaped backslash
+                if i > 0 and text[i - 1] == "\\":
+                    # This backslash is already escaped (preceded by \\)
+                    result.append(text[i])
+                    i += 1
+                    continue
+
+                # Check if this is a valid JSON escape sequence
+                if i + 1 < len(text):
+                    next_char = text[i + 1]
+                    # Valid JSON escapes: \" \\ \/ \b \f \n \r \t \uXXXX
+                    if next_char in '"\\\/bfnrt':
+                        # Valid JSON escape, keep as-is
+                        result.append(text[i])
+                        i += 1
+                        continue
+                    elif next_char == "u" and i + 5 < len(text):
+                        # Possible \uXXXX sequence, keep as-is if valid hex follows
+                        result.append(text[i])
+                        i += 1
+                        continue
+
+                # Unescaped backslash found (likely LaTeX or other)
+                # Escape it by doubling
+                result.append("\\\\")
+                i += 1
+            else:
+                result.append(text[i])
+                i += 1
+
+        return "".join(result)
 
     @staticmethod
     def _remove_dh_image_tags(text: str) -> str:
-        """Remove <dh-image>...</dh-image> nesting from text."""
-        return re.sub(r'<dh-image>.*?</dh-image>', '', text, flags=re.DOTALL).strip()
+        """Remove <dh-image>...</dh-image> tags and any surrounding artifacts."""
+        # Remove <dh-image>...</dh-image> tags
+        text = re.sub(r"<dh-image>.*?</dh-image>", "", text, flags=re.DOTALL)
+        # Remove any remaining UUID patterns that appear near image references
+        text = re.sub(r"[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}", "", text)
+        # Clean up extra whitespace and line breaks created by removals
+        text = re.sub(r"\s+", " ", text)
+        return text.strip()
 
     @classmethod
     def _normalize_questions(cls, questions_raw: Any) -> list[ExtractedQuestion]:
@@ -437,6 +471,9 @@ class QuestionExtractionPipeline(
 
             # Remove image tags
             question_text = cls._remove_dh_image_tags(question_text)
+
+            # Convert tables to LaTeX format
+            question_text = convert_tables_in_text(question_text)
 
             # Normalize LaTeX content to fix broken commands
             question_text = normalize_question_latex(question_text)
@@ -545,7 +582,11 @@ class QuestionExtractionPipeline(
                 answer_val = str(item.get("value", "")).strip()
                 if answer_val:
                     # Remove image tags
-                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(answer_val)
+                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(
+                        answer_val
+                    )
+                    # Convert tables to LaTeX format
+                    answer_val = convert_tables_in_text(answer_val)
                     # Normalize LaTeX in answer text
                     answer_val = normalize_question_latex(answer_val)
                     normalized_item = {**item, "value": answer_val}
@@ -555,7 +596,11 @@ class QuestionExtractionPipeline(
                 answer_val = str(item).strip()
                 if answer_val:
                     # Remove image tags
-                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(answer_val)
+                    answer_val = QuestionExtractionPipeline._remove_dh_image_tags(
+                        answer_val
+                    )
+                    # Convert tables to LaTeX format
+                    answer_val = convert_tables_in_text(answer_val)
                     # Normalize LaTeX in answer text
                     answer_val = normalize_question_latex(answer_val)
                     answers.append({"value": answer_val, "is_correct": False})
@@ -579,7 +624,12 @@ class QuestionExtractionPipeline(
                 continue
 
             # Remove image tags
-            sub_question_text = QuestionExtractionPipeline._remove_dh_image_tags(sub_question_text)
+            sub_question_text = QuestionExtractionPipeline._remove_dh_image_tags(
+                sub_question_text
+            )
+
+            # Convert tables to LaTeX format
+            sub_question_text = convert_tables_in_text(sub_question_text)
 
             # Normalize LaTeX content in sub-questions
             sub_question_text = normalize_question_latex(sub_question_text)

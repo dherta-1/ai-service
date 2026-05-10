@@ -49,7 +49,9 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
         Returns:
             Sorted list of matching groups (best similarity first)
         """
-        if not candidates or vector is None:
+        if not candidates:
+            return []
+        if vector is None:
             return []
 
         import numpy as np

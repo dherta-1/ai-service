@@ -16,6 +16,7 @@ from src.shared.response.exception_handler import NotFoundException
 from src.dtos.ai.req import GenerateSimilarQuestionsRequest
 from src.entities.user import User
 from src.shared.constants.user import Role
+from src.shared.response.response_models import ApiResponse
 
 logger = logging.getLogger(__name__)
 
@@ -110,7 +111,7 @@ async def generate_similar_questions(
     request: GenerateSimilarQuestionsRequest,
     service: GenerateSimilarQuestionsService = Depends(get_similar_questions_service),
     current_user: User = Depends(get_current_user),
-) -> dict:
+) -> ApiResponse:
     """Generate similar questions using RAG pattern.
 
     Takes a question_id and performs:

@@ -63,7 +63,7 @@ class GenerateSimilarQuestionsService:
         if not base_question:
             raise ValueError(f"Question {question_id} not found")
 
-        if not base_question.vector_embedding:
+        if not base_question.vector_embedding.any():
             raise ValueError(
                 f"Question {question_id} has no vector embedding for search"
             )
@@ -100,7 +100,7 @@ class GenerateSimilarQuestionsService:
             num_questions=num_generate,
         )
 
-        llm_response = await self._llm.generate(prompt)
+        llm_response = self._llm.generate(prompt)
 
         try:
             generated_list = extract_generated_questions(llm_response)
@@ -117,9 +117,7 @@ class GenerateSimilarQuestionsService:
     def _build_question_dict(self, question) -> Dict[str, Any]:
         """Convert Question entity to dictionary with answers."""
         answers = self._answer_repo.get_by_question(question.id)
-        answers_list = [
-            {"value": a.value, "is_correct": a.is_correct} for a in answers
-        ]
+        answers_list = [{"value": a.value, "is_correct": a.is_correct} for a in answers]
 
         return {
             "id": str(question.id),
@@ -132,9 +130,7 @@ class GenerateSimilarQuestionsService:
             "image_list": question.image_list,
         }
 
-    def _select_reference_questions(
-        self, matched_groups: List, k: int
-    ) -> List:
+    def _select_reference_questions(self, matched_groups: List, k: int) -> List:
         """Select one question per group with lowest variant_existence_count.
 
         Args:
