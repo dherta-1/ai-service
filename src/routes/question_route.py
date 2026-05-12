@@ -286,6 +286,62 @@ async def submit_question_review(
 # Question Mutation
 # ------------------------------------------------------------------
 
+@router.post("/batch/create")
+async def batch_create_questions(
+    body: dict = Body(...),
+    mutation_service: QuestionMutationService = Depends(get_mutation_service),
+):
+    """Batch create multiple questions with embedding and group assignment.
+
+    Request body:
+    {
+        "questions": [
+            {
+                "question_text": "...",
+                "question_type": "...",
+                "difficulty": "...",
+                "subject": "...",
+                "topic": "...",
+                "answers": [...],
+                "sub_questions": [...],
+                "image_list": [...]
+            },
+            ...
+        ]
+    }
+
+    Returns list of created questions with their IDs.
+    """
+    questions_data = body.get("questions", [])
+    if not isinstance(questions_data, list) or not questions_data:
+        raise BadRequestException("questions must be a non-empty list")
+
+    created_questions = []
+    failed_questions = []
+
+    for idx, q_data in enumerate(questions_data):
+        try:
+            request = CreateQuestionRequest(**q_data)
+            question = await mutation_service.create_question(request)
+            data = QuestionDetailResponse.model_validate(question).model_dump()
+            created_questions.append(data)
+        except Exception as e:
+            failed_questions.append({
+                "index": idx,
+                "error": str(e)
+            })
+
+    return create_response(
+        data={
+            "created": created_questions,
+            "failed": failed_questions,
+            "total_created": len(created_questions),
+            "total_failed": len(failed_questions),
+        },
+        message=f"Batch created {len(created_questions)} questions",
+    )
+
+
 @router.post("")
 async def create_question(
     body: CreateQuestionRequest,

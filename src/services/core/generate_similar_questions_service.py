@@ -11,6 +11,7 @@ RAG Flow:
 from __future__ import annotations
 
 import logging
+import re
 from typing import Dict, List, Any
 from uuid import UUID
 
@@ -108,10 +109,14 @@ class GenerateSimilarQuestionsService:
             logger.error("Failed to extract generated questions: %s", e)
             raise ValueError(f"Failed to parse LLM response: {e}")
 
+        normalized_questions = [
+            self._normalize_generated_question(q) for q in generated_list
+        ]
+
         return {
             "base_question": base_data,
-            "generated_questions": generated_list,
-            "total_generated": len(generated_list),
+            "generated_questions": normalized_questions,
+            "total_generated": len(normalized_questions),
         }
 
     def _build_question_dict(self, question) -> Dict[str, Any]:
@@ -171,3 +176,86 @@ class GenerateSimilarQuestionsService:
             return False
 
         return True
+
+    def _normalize_generated_question(self, question: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize and validate generated question, including LaTeX cleanup.
+
+        Args:
+            question: Question dict from LLM extraction
+
+        Returns:
+            Normalized question dict with validated LaTeX
+        """
+        normalized = dict(question)
+
+        if "question_text" in normalized and normalized["question_text"]:
+            normalized["question_text"] = self._normalize_latex(
+                normalized["question_text"]
+            )
+
+        if "answers" in normalized and isinstance(normalized["answers"], list):
+            normalized["answers"] = [
+                self._normalize_answer(a) for a in normalized["answers"]
+            ]
+
+        return normalized
+
+    def _normalize_latex(self, text: str) -> str:
+        """Normalize LaTeX in text.
+
+        Handles:
+        - Escape unescaped backslashes
+        - Fix common inline math delimiters
+        - Normalize spacing around LaTeX commands
+        - Remove orphaned backslashes
+
+        Args:
+            text: Text that may contain LaTeX
+
+        Returns:
+            Normalized text with valid LaTeX
+        """
+        if not text:
+            return text
+
+        text = str(text)
+
+        # Remove leading/trailing whitespace
+        text = text.strip()
+
+        # Fix backslash issues: collapse multiple backslashes to single
+        text = re.sub(r'\\{2,}', r'\\', text)
+
+        # Escape unescaped backslashes (preceded by non-escape chars)
+        # Look for backslashes that aren't part of LaTeX commands
+        text = re.sub(r'(?<!\\)\\(?![\\{}$a-zA-Z])', r'\\', text)
+
+        # Normalize inline math: $...$ should have spaces around it
+        text = re.sub(r'\$\s+', r'$', text)
+        text = re.sub(r'\s+\$', r'$', text)
+
+        # Fix orphaned backslashes at start/end
+        text = re.sub(r'^\\+\s+', '', text)
+        text = re.sub(r'\s+\\+$', '', text)
+
+        return text
+
+    def _normalize_answer(self, answer: Dict[str, Any]) -> Dict[str, Any]:
+        """Normalize answer dict, including LaTeX in value.
+
+        Args:
+            answer: Answer dict with 'value' and 'is_correct'
+
+        Returns:
+            Normalized answer dict
+        """
+        normalized = dict(answer)
+
+        if "value" in normalized and normalized["value"]:
+            normalized["value"] = self._normalize_latex(normalized["value"])
+
+        # Ensure is_correct is boolean
+        if "is_correct" in normalized:
+            normalized["is_correct"] = bool(normalized["is_correct"])
+
+        return normalized
