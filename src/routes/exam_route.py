@@ -5,13 +5,18 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query
 from fastapi.responses import Response
 
 from src.container import get_di_container
 from src.entities.user import User
 from src.shared.auth_deps import get_current_user
-from src.shared.response.exception_handler import NotFoundException, BadRequestException
+from src.shared.response.exception_handler import (
+    NotFoundException,
+    BadRequestException,
+    ConflictException,
+    UnauthorizedException,
+)
 from src.dtos.exam.req import (
     GenerateBaseExamRequest,
     GenerateVersionsRequest,
@@ -19,12 +24,23 @@ from src.dtos.exam.req import (
     SaveExamTemplateRequest,
     UpdateExamStatusRequest,
 )
+from src.dtos.exam_attempt.req import (
+    CreateExamAttemptRequest,
+    SaveAnswerRequest,
+    SubmitExamRequest,
+)
 from src.services.exam_service import ExamService
+from src.services.exam_attempt_service import ExamAttemptService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
 from src.services.core.exam_instance_export_service import ExamInstanceExportService
-from src.services.core.variant_exam_generation_service import VariantExamGenerationService
+from src.services.core.variant_exam_generation_service import (
+    VariantExamGenerationService,
+)
 from src.shared.helpers.dto_utils import to_dict
-from src.shared.response.response_models import create_response, create_paginated_response
+from src.shared.response.response_models import (
+    create_response,
+    create_paginated_response,
+)
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -46,9 +62,14 @@ def get_export_service() -> ExamInstanceExportService:
     return get_di_container().resolve(ExamInstanceExportService)
 
 
+def get_attempt_service() -> ExamAttemptService:
+    return get_di_container().resolve(ExamAttemptService)
+
+
 # ------------------------------------------------------------------
 # Templates
 # ------------------------------------------------------------------
+
 
 @router.post("/templates")
 async def save_template(
@@ -74,6 +95,139 @@ async def save_template(
         return create_response(data=data, message="Template saved successfully")
     except ValueError as exc:
         raise BadRequestException(str(exc))
+
+
+# ------------------------------------------------------------------
+# Exam attempts
+# ------------------------------------------------------------------
+
+
+@router.get("/attempts")
+async def list_my_attempts(
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """List the current user's exam attempts with template info and pagination."""
+    data, total = service.list_user_attempts(user=current_user, page=page, per_page=per_page)
+    return create_paginated_response(
+        data=data,
+        total=total,
+        page=page,
+        per_page=per_page,
+        message="Attempts retrieved successfully",
+    )
+
+
+@router.get("/attempts/{attempt_id}")
+async def get_attempt_detail(
+    attempt_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Get detailed answer history for a submitted exam attempt."""
+    try:
+        data = service.get_attempt_detail(attempt_id, current_user)
+        return create_response(data=data, message="Attempt detail retrieved")
+    except ValueError as exc:
+        message = str(exc)
+        if "not found" in message:
+            raise NotFoundException(message)
+        raise BadRequestException(message)
+
+
+@router.get("/attempts/current")
+async def get_current_attempt(
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+    attempt_token: str = Header(..., alias="X-Attempt-Token"),
+):
+    """Get current exam attempt by attempt token."""
+    try:
+        payload = service.get_current_attempt(attempt_token, current_user)
+        return create_response(data=payload, message="Attempt retrieved successfully")
+    except ValueError as exc:
+        message = str(exc)
+        if "token" in message:
+            raise UnauthorizedException(message)
+        if "submitted" in message:
+            raise ConflictException(message)
+        if "not found" in message:
+            raise NotFoundException(message)
+        raise BadRequestException(message)
+
+
+@router.post("/attempts/{attempt_token}/save-answer")
+async def save_attempt_answer(
+    attempt_token: str,
+    body: SaveAnswerRequest,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Save a single answer during an exam attempt (auto-save)."""
+    try:
+        service.save_answer(
+            token=attempt_token,
+            user=current_user,
+            question_token=body.question_token,
+            selected_option_token=body.selected_option_token,
+        )
+        return Response(status_code=204)
+    except ValueError as exc:
+        message = str(exc)
+        if "token" in message:
+            raise UnauthorizedException(message)
+        if "submitted" in message:
+            raise ConflictException(message)
+        if "not found" in message:
+            raise NotFoundException(message)
+        raise BadRequestException(message)
+
+
+@router.post("/attempts/{attempt_token}/submit")
+async def submit_exam_attempt(
+    attempt_token: str,
+    body: SubmitExamRequest,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Submit an exam attempt and score answers."""
+    try:
+        payload = service.submit_attempt(attempt_token, current_user, body.answers)
+        return create_response(data=payload, message="Exam submitted successfully")
+    except ValueError as exc:
+        message = str(exc)
+        if "token" in message:
+            raise UnauthorizedException(message)
+        if "submitted" in message:
+            raise ConflictException(message)
+        if "not found" in message:
+            raise NotFoundException(message)
+        raise BadRequestException(message)
+
+
+@router.get("/attempts/{attempt_token}/result")
+async def get_exam_result(
+    attempt_token: str,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Get exam result details for a submitted attempt."""
+    try:
+        payload = service.get_result(attempt_token, current_user)
+        return create_response(
+            data=payload, message="Exam result retrieved successfully"
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if "token" in message:
+            raise UnauthorizedException(message)
+        if "submitted" in message:
+            raise ConflictException(message)
+        if "not found" in message:
+            raise NotFoundException(message)
+        raise BadRequestException(message)
 
 
 @router.get("/templates")
@@ -166,9 +320,29 @@ async def list_instances_by_template(
     )
 
 
+@router.post("/templates/{template_id}/attempts")
+async def create_exam_attempt(
+    template_id: UUID,
+    body: CreateExamAttemptRequest,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Create an exam attempt from a template (new or random existing instance)."""
+    try:
+        payload = service.start_attempt(
+            template_id=template_id,
+            user=current_user,
+            use_existing_instance=body.use_existing_instance or False,
+        )
+        return create_response(data=payload, message="Exam attempt created")
+    except ValueError as exc:
+        raise BadRequestException(str(exc))
+
+
 # ------------------------------------------------------------------
 # Base exam generation
 # ------------------------------------------------------------------
+
 
 @router.post("/generate-base")
 async def generate_base_exam(
@@ -192,8 +366,10 @@ async def generate_base_exam(
         logger.info(f"Generated exam {exam.id}")
         exam_data = exam_service.build_exam_response_data(exam)
         logger.info(f"Exam data sections: {len(exam_data.get('sections', []))}")
-        for sec in exam_data.get('sections', []):
-            logger.info(f"  Section {sec['name']}: {len(sec.get('questions', []))} questions")
+        for sec in exam_data.get("sections", []):
+            logger.info(
+                f"  Section {sec['name']}: {len(sec.get('questions', []))} questions"
+            )
         total_questions = exam_data.pop("_total_questions", 0)
         return create_response(
             data={"exam_instance": exam_data, "total_questions": total_questions},
@@ -206,6 +382,7 @@ async def generate_base_exam(
 # ------------------------------------------------------------------
 # Exam instances
 # ------------------------------------------------------------------
+
 
 @router.get("/instances/{exam_id}")
 async def get_exam_instance(
@@ -227,7 +404,9 @@ async def get_exam_instance(
 
     exam_data = service.build_exam_response_data(exam)
     exam_data.pop("_total_questions", None)
-    return create_response(data=exam_data, message="Exam instance retrieved successfully")
+    return create_response(
+        data=exam_data, message="Exam instance retrieved successfully"
+    )
 
 
 @router.get("/instances/{exam_id}/versions")
@@ -320,7 +499,9 @@ async def replace_question(
             data={
                 "question_exam_test_id": str(qet.id),
                 "question_id": qet.question_id,
-                "answer_order": json.loads(qet.answer_order) if qet.answer_order else None,
+                "answer_order": (
+                    json.loads(qet.answer_order) if qet.answer_order else None
+                ),
             },
             message="Question replaced successfully",
         )
@@ -331,6 +512,7 @@ async def replace_question(
 # ------------------------------------------------------------------
 # Version generation
 # ------------------------------------------------------------------
+
 
 @router.post("/generate-versions")
 async def generate_versions(
@@ -374,14 +556,21 @@ async def generate_versions(
 # Export
 # ------------------------------------------------------------------
 
+
 @router.get("/instances/{exam_id}/export")
 async def export_exam_instance(
     exam_id: UUID,
-    school_name: str = Query(default="TRƯỜNG ĐẠI HỌC", description="School / institution name for header"),
+    school_name: str = Query(
+        default="TRƯỜNG ĐẠI HỌC", description="School / institution name for header"
+    ),
     subject_label: str = Query(default="", description="Subject display name"),
     duration_minutes: int = Query(default=90, description="Exam duration in minutes"),
-    include_answer_key: bool = Query(default=True, description="Append answer key page"),
-    force_regenerate: bool = Query(default=False, description="Deprecated - always performs full export"),
+    include_answer_key: bool = Query(
+        default=True, description="Append answer key page"
+    ),
+    force_regenerate: bool = Query(
+        default=False, description="Deprecated - always performs full export"
+    ),
     current_user: User = Depends(get_current_user),
     exam_service: ExamService = Depends(get_exam_service),
     export_service: ExamInstanceExportService = Depends(get_export_service),
@@ -428,7 +617,9 @@ async def export_exam_instance(
 @router.get("/instances/{exam_id}/export/url")
 async def get_exam_export_url(
     exam_id: UUID,
-    expires_in: int = Query(default=3600, description="Presigned URL expiry in seconds"),
+    expires_in: int = Query(
+        default=3600, description="Presigned URL expiry in seconds"
+    ),
     current_user: User = Depends(get_current_user),
     exam_service: ExamService = Depends(get_exam_service),
     export_service: ExamInstanceExportService = Depends(get_export_service),

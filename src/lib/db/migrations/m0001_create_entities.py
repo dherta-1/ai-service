@@ -26,6 +26,7 @@ from src.entities.exam_template import ExamTemplate
 from src.entities.exam_instance import ExamInstance
 from src.entities.exam_test_section import ExamTestSection
 from src.entities.question_exam_test import QuestionExamTest
+from src.entities.attempt_token_mapping import AttemptTokenMapping
 
 
 class MigrationCreateEntities(BaseMigration):
@@ -58,6 +59,7 @@ class MigrationCreateEntities(BaseMigration):
             ExamInstance,
             ExamTestSection,
             QuestionExamTest,
+            AttemptTokenMapping,
         ]
 
         for model in models:
@@ -85,6 +87,7 @@ class MigrationCreateEntities(BaseMigration):
                 ExamInstance,
                 ExamTestSection,
                 QuestionExamTest,
+                AttemptTokenMapping,
             ]
         )
 

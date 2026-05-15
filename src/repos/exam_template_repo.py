@@ -27,3 +27,8 @@ class ExamTemplateRepository(BaseRepo[ExamTemplate]):
                 (ExamTemplate.subject == subject) & (ExamTemplate.created_by == user_id)
             )
         )
+
+    def get_by_ids(self, ids: List[str]) -> List[ExamTemplate]:
+        if not ids:
+            return []
+        return list(ExamTemplate.select().where(ExamTemplate.id.in_(ids)))

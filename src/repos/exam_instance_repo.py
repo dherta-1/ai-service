@@ -61,3 +61,9 @@ class ExamInstanceRepository(BaseRepo[ExamInstance]):
 
     def update_status(self, exam_id: UUID, status: int) -> None:
         ExamInstance.update(status=status).where(ExamInstance.id == exam_id).execute()
+
+    def get_random_instance(self, template_id: UUID) -> Optional[ExamInstance]:
+        """Get a random instance from template (for reuse)"""
+        import random
+        instances = self.get_by_template(template_id)
+        return random.choice(instances) if instances else None

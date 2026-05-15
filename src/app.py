@@ -11,6 +11,9 @@ from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 from src.services.exam_service import ExamService
+from src.services.exam_attempt_service import ExamAttemptService
+from src.services.token_service import ExamTokenService
+from src.services.answer_scoring_service import AnswerScoringService
 from src.repos.document_repo import DocumentRepository
 from src.repos.file_metadata_repo import FileMetadataRepository
 from src.repos.page_repo import PageRepository
@@ -69,6 +72,7 @@ from src.services.core.variant_exam_generation_service import (
 from src.services.core.question_mutation_service import QuestionMutationService
 import logging
 from src.entities.answer import Answer
+from src.entities.attempt_token_mapping import AttemptTokenMapping
 from src.entities.document import Document
 from src.entities.exam_instance import ExamInstance
 from src.entities.exam_template import ExamTemplate
@@ -82,6 +86,8 @@ from src.entities.subject import Subject
 from src.entities.task import Task
 from src.entities.topic import Topic
 from src.entities.user import User
+from src.entities.user_test_attempt import UserTestAttempt
+from src.entities.user_test_attempt_answer import UserTestAttemptAnswer
 
 logging.basicConfig(
     level=logging.INFO,
@@ -180,6 +186,9 @@ def setup_di_container() -> None:
     container.register_singleton("question_service", QuestionService())
     container.register_singleton("page_service", PageService())
     container.register_singleton("exam_service", ExamService())
+    container.register_singleton("exam_token_service", ExamTokenService())
+    container.register_singleton("answer_scoring_service", AnswerScoringService())
+    container.register_singleton("exam_attempt_service", ExamAttemptService())
     container.register_singleton("subject_service", SubjectService(SubjectRepository()))
     container.register_singleton("topic_service", TopicService(TopicRepository()))
 
@@ -246,6 +255,7 @@ def bind_models_to_database() -> None:
         models = [
             User,
             Answer,
+            AttemptTokenMapping,
             Document,
             ExamInstance,
             ExamTemplate,
@@ -258,6 +268,8 @@ def bind_models_to_database() -> None:
             Subject,
             Task,
             Topic,
+            UserTestAttempt,
+            UserTestAttemptAnswer,
         ]
 
         # Bind each model to the database
