@@ -193,6 +193,11 @@ class ExamService:
             return [inst for inst in all_instances if inst.created_by_id == user_id]
         return all_instances
 
+    def get_instances_by_template_paginated(
+        self, template_id: UUID, page: int = 1, per_page: int = 10
+    ) -> tuple[List[ExamInstance], int]:
+        return self._instance_repo.get_by_template_paginated(template_id, page, per_page)
+
     def get_all_instances_by_template(
         self, template_id: UUID, user_id: Optional[UUID] = None
     ) -> List[ExamInstance]:

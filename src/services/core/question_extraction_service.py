@@ -22,6 +22,7 @@ from src.pipelines.question_persistence import QuestionPersistencePipeline
 from src.repos.page_repo import PageRepository
 from src.repos.task_repo import TaskRepository
 from src.shared.constants.general import Status
+from src.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -36,13 +37,14 @@ class QuestionExtractionService:
         self,
         llm_client,
     ):
+        settings = get_settings()
         self._llm_client = llm_client
-        self._extraction_pipeline = QuestionExtractionPipeline(
-            llm_client=llm_client
-        )
+        self._extraction_pipeline = QuestionExtractionPipeline(llm_client=llm_client)
         self._answer_parsing_pipeline = AnswerParsingPipeline()
         self._embedding_pipeline = QuestionEmbeddingPipeline(llm_client=llm_client)
-        self._grouping_pipeline = QuestionGroupingPipeline()
+        self._grouping_pipeline = QuestionGroupingPipeline(
+            similarity_threshold=settings.question_grouping_threshold
+        )
         self._persistence_pipeline = QuestionPersistencePipeline()
         self._page_repo = PageRepository()
         self._task_repo = TaskRepository()
@@ -105,7 +107,9 @@ class QuestionExtractionService:
             return {"persisted_count": 0, "failed_count": 0, "errors": []}
 
         # Pipeline 2: Parse answers
-        parse_result = await self._answer_parsing_pipeline.process({"questions": questions})
+        parse_result = await self._answer_parsing_pipeline.process(
+            {"questions": questions}
+        )
         questions = parse_result.get("questions", [])
 
         # Pipeline 3: Embed
@@ -113,10 +117,12 @@ class QuestionExtractionService:
         questions = embed_result.get("questions", [])
 
         # Pipeline 4: Group
-        group_result = await self._grouping_pipeline.process({
-            "questions": questions,
-            "uploaded_by_id": uploaded_by_id,
-        })
+        group_result = await self._grouping_pipeline.process(
+            {
+                "questions": questions,
+                "uploaded_by_id": uploaded_by_id,
+            }
+        )
         grouped_questions = group_result.get("grouped_questions", [])
 
         # Pipeline 5: Persist

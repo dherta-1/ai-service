@@ -5,6 +5,7 @@ from uuid import UUID
 
 from src.repos.answer_repo import AnswerRepository
 from src.repos.question_repo import QuestionRepository
+from src.repos.question_group_repo import QuestionGroupRepository
 from src.shared.base.base_service import BaseService
 
 
@@ -15,6 +16,7 @@ class QuestionService(BaseService):
     ):
         super().__init__(QuestionRepository())
         self._answer_repo = AnswerRepository()
+        self._group_repo = QuestionGroupRepository()
 
     # --- Query ---
 
@@ -113,6 +115,26 @@ class QuestionService(BaseService):
             status=status,
         )
         return questions, total
+
+    def get_stats(
+        self,
+        subject: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        difficulty: Optional[str] = None,
+        question_types: Optional[List[str]] = None,
+    ) -> dict:
+        question_count = self.repo.count_by_filters(
+            subject=subject,
+            topics=topics,
+            difficulty=difficulty,
+            question_types=question_types,
+        )
+        group_count = self._group_repo.count_by_filters(
+            subject=subject,
+            topics=topics,
+            difficulty=difficulty,
+        )
+        return {"question_count": question_count, "group_count": group_count}
 
     def get_with_answers(self, question_id: UUID):
         question = self.repo.get_by_id(question_id)

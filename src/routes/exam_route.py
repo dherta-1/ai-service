@@ -19,7 +19,6 @@ from src.shared.response.exception_handler import (
 )
 from src.dtos.exam.req import (
     GenerateBaseExamRequest,
-    GenerateVersionsRequest,
     ReplaceQuestionRequest,
     SaveExamTemplateRequest,
     UpdateExamStatusRequest,
@@ -33,9 +32,6 @@ from src.services.exam_service import ExamService
 from src.services.exam_attempt_service import ExamAttemptService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
 from src.services.core.exam_instance_export_service import ExamInstanceExportService
-from src.services.core.variant_exam_generation_service import (
-    VariantExamGenerationService,
-)
 from src.shared.helpers.dto_utils import to_dict
 from src.shared.response.response_models import (
     create_response,
@@ -52,10 +48,6 @@ def get_exam_service() -> ExamService:
 
 def get_base_service() -> BaseExamGenerationService:
     return get_di_container().resolve(BaseExamGenerationService)
-
-
-def get_variant_service() -> VariantExamGenerationService:
-    return get_di_container().resolve(VariantExamGenerationService)
 
 
 def get_export_service() -> ExamInstanceExportService:
@@ -289,10 +281,12 @@ async def get_template(
 @router.get("/templates/{template_id}/instances")
 async def list_instances_by_template(
     template_id: UUID,
+    page: int = Query(1, ge=1),
+    per_page: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
     service: ExamService = Depends(get_exam_service),
 ):
-    """Get all exam instances (base + versions) created from a template.
+    """List exam instances for a template with pagination.
 
     - Admin: returns all instances from template
     - Non-admin: returns only their own instances from template
@@ -304,8 +298,11 @@ async def list_instances_by_template(
     if current_user.role != "admin" and template.created_by_id != current_user.id:
         raise NotFoundException("Template not found")
 
-    user_id = None if current_user.role == "admin" else current_user.id
-    instances = service.get_all_instances_by_template(template_id, user_id)
+    instances, total = service.get_instances_by_template_paginated(
+        template_id=template_id,
+        page=page,
+        per_page=per_page,
+    )
 
     data = []
     for instance in instances:
@@ -315,7 +312,9 @@ async def list_instances_by_template(
 
     return create_paginated_response(
         data=data,
-        total=len(data),
+        total=total,
+        page=page,
+        per_page=per_page,
         message=f"Retrieved {len(data)} exam instances from template",
     )
 
@@ -333,6 +332,23 @@ async def create_exam_attempt(
             template_id=template_id,
             user=current_user,
             use_existing_instance=body.use_existing_instance or False,
+        )
+        return create_response(data=payload, message="Exam attempt created")
+    except ValueError as exc:
+        raise BadRequestException(str(exc))
+
+
+@router.post("/instances/{instance_id}/attempts")
+async def create_exam_attempt_from_instance(
+    instance_id: UUID,
+    current_user: User = Depends(get_current_user),
+    service: ExamAttemptService = Depends(get_attempt_service),
+):
+    """Create an exam attempt directly from a specific exam instance."""
+    try:
+        payload = service.start_attempt_from_instance(
+            instance_id=instance_id,
+            user=current_user,
         )
         return create_response(data=payload, message="Exam attempt created")
     except ValueError as exc:
@@ -504,49 +520,6 @@ async def replace_question(
                 ),
             },
             message="Question replaced successfully",
-        )
-    except ValueError as exc:
-        raise BadRequestException(str(exc))
-
-
-# ------------------------------------------------------------------
-# Version generation
-# ------------------------------------------------------------------
-
-
-@router.post("/generate-versions")
-async def generate_versions(
-    body: GenerateVersionsRequest,
-    current_user: User = Depends(get_current_user),
-    variant_service: VariantExamGenerationService = Depends(get_variant_service),
-    exam_service: ExamService = Depends(get_exam_service),
-):
-    """Generate N version exams from an accepted base exam.
-
-    - Admin: can generate versions from any base exam
-    - Non-admin: can only generate versions from their own base exams
-    """
-    try:
-        base_exam = exam_service.get_exam_instance(body.base_exam_id)
-        if not base_exam:
-            raise ValueError(f"Base exam {body.base_exam_id} not found")
-
-        if current_user.role != "admin" and base_exam.created_by_id != current_user.id:
-            raise ValueError(f"Base exam {body.base_exam_id} not found")
-
-        versions = variant_service.generate_versions(
-            base_exam_id=body.base_exam_id,
-            num_versions=body.num_versions,
-        )
-        versions_data = []
-        for v in versions:
-            v_data = exam_service.build_exam_response_data(v)
-            v_data.pop("_total_questions", None)
-            versions_data.append(v_data)
-
-        return create_response(
-            data={"versions": versions_data, "total_versions": len(versions_data)},
-            message=f"{len(versions_data)} exam versions generated successfully",
         )
     except ValueError as exc:
         raise BadRequestException(str(exc))

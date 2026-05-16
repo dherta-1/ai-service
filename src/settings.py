@@ -93,6 +93,10 @@ class Settings(BaseSettings):
     smtp_from_name: str = Field(default="AI Service", env="SMTP_FROM_NAME")
     frontend_url: str = Field(default="http://localhost:3000", env="FRONTEND_URL")
 
+    question_grouping_threshold: float = Field(
+        default=0.8, env="QUESTION_GROUPING_THRESHOLD"
+    )
+
     class Config:
         env_file = ".env"
         case_sensitive = False

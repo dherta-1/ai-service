@@ -59,6 +59,16 @@ class ExamInstanceRepository(BaseRepo[ExamInstance]):
             )
         )
 
+    def get_by_template_paginated(
+        self, template_id: UUID, page: int = 1, per_page: int = 10
+    ) -> tuple[List[ExamInstance], int]:
+        query = ExamInstance.select().where(
+            ExamInstance.exam_template == template_id
+        ).order_by(ExamInstance.created_at.desc())
+        total = query.count()
+        instances = list(query.paginate(page, per_page))
+        return instances, total
+
     def update_status(self, exam_id: UUID, status: int) -> None:
         ExamInstance.update(status=status).where(ExamInstance.id == exam_id).execute()
 

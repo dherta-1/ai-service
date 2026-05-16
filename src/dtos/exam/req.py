@@ -15,6 +15,7 @@ class SectionConfig(BaseModel):
     top_k: int = Field(ge=1)
     random_level: str = "medium"            # "low" | "medium" | "high"
     custom_text: Optional[str] = None       # semantic hint for retrieval
+    skip_group_filtering: bool = False      # if True, pick questions directly instead of grouping
 
     @field_validator("topic", mode="before")
     @classmethod

@@ -225,6 +225,34 @@ async def batch_update_question_status(
     )
 
 
+@router.get("/stats")
+async def get_question_stats(
+    subject: Optional[str] = Query(None),
+    topics: Optional[str] = Query(None),
+    difficulty: Optional[str] = Query(None),
+    question_types: Optional[str] = Query(None),
+    service: QuestionService = Depends(get_question_service),
+):
+    """Get question and group counts for given filters (for stat display).
+
+    Query params:
+    - subject: Subject code
+    - topics: Comma-separated topic codes (e.g., "topic1,topic2")
+    - difficulty: Difficulty level
+    - question_types: Comma-separated question types (e.g., "multiple_choice,true_false")
+    """
+    topics_list = [t.strip() for t in topics.split(',')] if topics else []
+    question_types_list = [qt.strip() for qt in question_types.split(',')] if question_types else []
+
+    stats = service.get_stats(
+        subject=subject,
+        topics=topics_list,
+        difficulty=difficulty,
+        question_types=question_types_list,
+    )
+    return create_response(data=stats, message="Question stats retrieved")
+
+
 @router.get("/{question_id}")
 async def get_question(
     question_id: UUID,

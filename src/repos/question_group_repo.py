@@ -17,7 +17,7 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
         subject: str,
         topic: str | list[str],
         difficulty: str,
-        from_user_id: UUID = None
+        from_user_id: UUID = None,
     ) -> List[QuestionGroup]:
         topics = topic if isinstance(topic, list) else [topic]
         query = QuestionGroup.select().where(
@@ -105,7 +105,22 @@ class QuestionGroupRepository(BaseRepo[QuestionGroup]):
             from_user_id=from_user_id,
         )
 
+    def count_by_filters(
+        self,
+        subject: Optional[str] = None,
+        topics: Optional[list[str]] = None,
+        difficulty: Optional[str] = None,
+    ) -> int:
+        query = QuestionGroup.select()
+        if subject:
+            query = query.where(QuestionGroup.subject == subject)
+        if topics:
+            query = query.where(QuestionGroup.topic.in_(topics))
+        if difficulty:
+            query = query.where(QuestionGroup.difficulty == difficulty)
+        return query.count()
+
     def increment_existence_count(self, group_id: UUID) -> None:
-        QuestionGroup.update(
-            existence_count=QuestionGroup.existence_count + 1
-        ).where(QuestionGroup.id == group_id).execute()
+        QuestionGroup.update(existence_count=QuestionGroup.existence_count + 1).where(
+            QuestionGroup.id == group_id
+        ).execute()

@@ -30,7 +30,11 @@ from src.repos.question_exam_test_repo import QuestionExamTestRepository
 from src.repos.question_group_repo import QuestionGroupRepository
 from src.repos.question_repo import QuestionRepository
 from src.shared.constants.exam import ExamInstanceStatus
-from src.shared.helpers.exam_generation_helpers import generate_exam_code, increment_exam_counts
+from src.shared.helpers.exam_generation_helpers import (
+    generate_exam_code,
+    increment_exam_counts,
+)
+from src.shared.constants.question import QuestionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +62,6 @@ class BaseExamGenerationService:
         self._answer_repo = AnswerRepository()
         self._llm_client = llm_client
 
-
     # ------------------------------------------------------------------
     # Base exam generation (core algorithm)
     # ------------------------------------------------------------------
@@ -82,7 +85,9 @@ class BaseExamGenerationService:
             is_base=True,
             created_by_id=created_by_id,
         )
-        logger.info("Generated base exam %s with %d sections", exam.id, len(final_sections))
+        logger.info(
+            "Generated base exam %s with %d sections", exam.id, len(final_sections)
+        )
         return exam
 
     def _resolve_sections(
@@ -134,45 +139,184 @@ class BaseExamGenerationService:
                 order_index=order_idx,
             )
 
-            candidates = self._retrieve_candidate_groups(section)
-            if not candidates:
-                logger.warning(
-                    "No candidate groups for section '%s' (%s/%s/%s)",
-                    section.name, section.subject, section.topic, section.difficulty,
-                )
-                continue
-
-            query_vec = self._embed_custom_text(section.custom_text)
-            selected = select_groups_greedy(
-                candidates=candidates,
-                top_k=section.top_k,
-                random_level=section.random_level,
-                query_embedding=query_vec,
-            )
-
-            for q_order, group in enumerate(selected):
-                variant = self._pick_variant(group, section.question_type)
-                if not variant:
+            # Check if skip_group_filtering is enabled
+            if section.skip_group_filtering:
+                questions = self._pick_questions_directly(section)
+                if not questions:
+                    logger.warning(
+                        "No questions found for section '%s' with direct picking",
+                        section.name,
+                    )
                     continue
 
-                answer_order = self._shuffle_answers(variant)
-                self._qet_repo.create(
-                    question_group=group.id,
-                    question_id=str(variant.id),
-                    exam_test_section=sec_obj.id,
-                    order_count=q_order,
-                    answer_order=json.dumps(answer_order),
+                q_order = 0
+                for question in questions:
+                    group = self._group_repo.get_by_id(question.questions_group)
+                    answer_order = self._shuffle_answers(question)
+                    self._qet_repo.create(
+                        question_group=question.questions_group,
+                        question_id=str(question.id),
+                        exam_test_section=sec_obj.id,
+                        order_count=q_order,
+                        answer_order=json.dumps(answer_order),
+                    )
+                    all_group_ids.append(question.questions_group)
+                    all_question_ids.append(question.id)
+                    q_order += 1
+            else:
+                # Original group-based filtering
+                candidates = self._retrieve_candidate_groups(section)
+                if not candidates:
+                    logger.warning(
+                        "No candidate groups for section '%s' (%s/%s/%s)",
+                        section.name,
+                        section.subject,
+                        section.topic,
+                        section.difficulty,
+                    )
+                    continue
+
+                query_vec = self._embed_custom_text(section.custom_text)
+
+                # Rank all candidate groups by diversity + semantic score
+                ranked = select_groups_greedy(
+                    candidates=candidates,
+                    top_k=len(candidates),  # rank all, distribute slots next
+                    random_level=section.random_level,
+                    query_embedding=query_vec,
                 )
-                all_group_ids.append(group.id)
-                all_question_ids.append(variant.id)
+
+                # Distribute top_k slots across ranked groups (flexible distribution)
+                slot_map = self._distribute_slots(ranked, section.top_k)
+
+                q_order = 0
+                for group in ranked:
+                    count = slot_map.get(group, 0)
+                    if count <= 0:
+                        continue
+
+                    questions = self._pick_variants(group, count, section.question_type)
+                    for question in questions:
+                        answer_order = self._shuffle_answers(question)
+                        self._qet_repo.create(
+                            question_group=group.id,
+                            question_id=str(question.id),
+                            exam_test_section=sec_obj.id,
+                            order_count=q_order,
+                            answer_order=json.dumps(answer_order),
+                        )
+                        all_group_ids.append(group.id)
+                        all_question_ids.append(question.id)
+                        q_order += 1
 
         increment_exam_counts(all_group_ids, all_question_ids)
         return exam
 
-
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
+
+    def _pick_questions_directly(self, section: SectionConfig) -> List[Question]:
+        """Pick questions directly without group filtering.
+
+        Retrieves all eligible questions matching criteria (subject, topic, difficulty,
+        question_type) then uses weighted sampling without replacement to select top_k.
+
+        If custom_text is provided, applies cosine similarity ranking before sampling.
+        Weight is inversely proportional to variant_existence_count.
+        """
+        topics = section.topic if isinstance(section.topic, list) else [section.topic]
+
+        # Get all eligible questions matching criteria
+        questions = list(
+            Question.select().where(
+                (Question.subject == section.subject)
+                & (Question.topic.in_(topics))
+                & (Question.difficulty == section.difficulty)
+                & (Question.parent_question.is_null())
+                & (Question.status == QuestionStatus.APPROVED.value)
+            )
+        )
+
+        if not questions:
+            # Try difficulty fallback
+            for fallback_diff in _DIFFICULTY_FALLBACKS.get(section.difficulty, []):
+                questions = list(
+                    Question.select().where(
+                        (Question.subject == section.subject)
+                        & (Question.topic.in_(topics))
+                        & (Question.difficulty == fallback_diff)
+                        & (Question.parent_question.is_null())
+                        & (Question.status == QuestionStatus.APPROVED.value)
+                    )
+                )
+                if questions:
+                    logger.info(
+                        "Fell back to difficulty '%s' for section '%s' (found %d questions)",
+                        fallback_diff,
+                        section.name,
+                        len(questions),
+                    )
+                    break
+
+        if not questions:
+            logger.warning(
+                "No questions found for section '%s' (subject=%s, topics=%s, difficulty=%s)",
+                section.name,
+                section.subject,
+                topics,
+                section.difficulty,
+            )
+            return []
+
+        # Filter by question_type if specified
+        if section.question_type:
+            types_to_match = (
+                section.question_type
+                if isinstance(section.question_type, list)
+                else [section.question_type]
+            )
+            questions = [q for q in questions if q.question_type in types_to_match]
+            if not questions:
+                logger.warning(
+                    "No questions found after question_type filtering for section '%s'",
+                    section.name,
+                )
+                return []
+
+        # Apply cosine search ranking if custom_text provided
+        if section.custom_text and self._llm_client:
+            query_vec = self._embed_custom_text(section.custom_text)
+            if query_vec:
+                # Rank questions by cosine similarity to custom_text
+                questions = self._rank_questions_by_similarity(questions, query_vec)
+                # Take top 5*top_k to avoid full-scan, then sample from this pool
+                questions = questions[: 5 * section.top_k]
+                logger.info(
+                    "Ranked %d questions by semantic similarity for section '%s'",
+                    len(questions),
+                    section.name,
+                )
+
+        # Weighted sampling without replacement
+        selected = []
+        pool = list(questions)
+        k = min(section.top_k, len(pool))
+
+        for _ in range(k):
+            weights = [1.0 / (q.variant_existence_count + 1) for q in pool]
+            total = sum(weights)
+            probs = [w / total for w in weights]
+            idx = random.choices(range(len(pool)), weights=probs, k=1)[0]
+            selected.append(pool[idx])
+            pool.pop(idx)
+
+        logger.info(
+            "Picked %d questions directly for section '%s'",
+            len(selected),
+            section.name,
+        )
+        return selected
 
     def _retrieve_candidate_groups(self, section: SectionConfig) -> List[QuestionGroup]:
         topics = section.topic if isinstance(section.topic, list) else [section.topic]
@@ -181,7 +325,11 @@ class BaseExamGenerationService:
         )
         logger.info(
             "Retrieved %d candidate groups for section '%s' (subject=%s, topics=%s, difficulty=%s)",
-            len(candidates), section.name, section.subject, topics, section.difficulty,
+            len(candidates),
+            section.name,
+            section.subject,
+            topics,
+            section.difficulty,
         )
 
         if not candidates:
@@ -192,14 +340,19 @@ class BaseExamGenerationService:
                 if candidates:
                     logger.info(
                         "Fell back to difficulty '%s' for section '%s' (found %d groups)",
-                        fallback_diff, section.name, len(candidates),
+                        fallback_diff,
+                        section.name,
+                        len(candidates),
                     )
                     break
 
         if not candidates:
             logger.warning(
                 "No candidate groups found for section '%s' (subject=%s, topics=%s, difficulty=%s)",
-                section.name, section.subject, topics, section.difficulty,
+                section.name,
+                section.subject,
+                topics,
+                section.difficulty,
             )
             return []
 
@@ -214,12 +367,17 @@ class BaseExamGenerationService:
             for group in candidates:
                 # Get any question from this group to check its type
                 questions = self._question_repo.get_by_group(group.id)
-                if questions and any(q.question_type in types_to_match for q in questions):
+                if questions and any(
+                    q.question_type in types_to_match for q in questions
+                ):
                     filtered.append(group)
 
             logger.info(
                 "Filtered %d → %d groups by question_type %s for section '%s'",
-                len(candidates), len(filtered), types_to_match, section.name,
+                len(candidates),
+                len(filtered),
+                types_to_match,
+                section.name,
             )
             candidates = filtered
 
@@ -234,7 +392,9 @@ class BaseExamGenerationService:
         if section.custom_text and self._llm_client:
             query_vec = self._embed_custom_text(section.custom_text)
             if query_vec:
-                candidates = self._group_repo.cosine_search(candidates, query_vec, threshold=0.0)
+                candidates = self._group_repo.cosine_search(
+                    candidates, query_vec, threshold=0.0
+                )
                 return candidates[: 5 * section.top_k]
 
         # No custom_text: random sample pool of 5*top_k to avoid full-scan scoring
@@ -251,13 +411,46 @@ class BaseExamGenerationService:
             logger.warning("Failed to embed custom_text: %s", exc)
             return None
 
+    def _rank_questions_by_similarity(
+        self, questions: List[Question], query_vec: List[float]
+    ) -> List[Question]:
+        """Rank questions by cosine similarity to query vector.
+
+        Returns questions sorted by similarity (highest first), filtering out
+        questions without embeddings.
+        """
+        import numpy as np
+
+        scored = []
+        q_vec = np.array(query_vec, dtype=float)
+
+        for q in questions:
+            if not q.embedding:
+                continue
+            try:
+                g_vec = np.array(q.embedding, dtype=float)
+                cosine_sim = float(
+                    np.dot(g_vec, q_vec) / (np.linalg.norm(g_vec) * np.linalg.norm(q_vec))
+                )
+                scored.append((q, cosine_sim))
+            except Exception:
+                continue
+
+        # Sort by similarity descending
+        scored.sort(key=lambda x: x[1], reverse=True)
+        return [q for q, _ in scored]
+
     def _pick_variant(
-        self, group: QuestionGroup, question_type: Optional[str | list[str]] = None, rng: random.Random = None
+        self,
+        group: QuestionGroup,
+        question_type: Optional[str | list[str]] = None,
+        rng: random.Random = None,
     ) -> Optional[Question]:
         variants = list(
             Question.select().where(
                 (Question.questions_group == group.id)
                 & (Question.parent_question.is_null())
+                & (Question.status == QuestionStatus.APPROVED.value)
             )
         )
         if not variants:
@@ -277,10 +470,76 @@ class BaseExamGenerationService:
         _rng = rng or random
         return _rng.choices(variants, weights=probs, k=1)[0]
 
-    def _shuffle_answers(self, question: Question, rng: random.Random = None) -> List[int]:
+    def _pick_variants(
+        self,
+        group: QuestionGroup,
+        count: int,
+        question_type: Optional[str | list[str]] = None,
+    ) -> List[Question]:
+        """Pick multiple distinct questions from a group with weighted sampling.
+
+        Weight is inversely proportional to variant_existence_count.
+        Returns up to 'count' questions; fewer if group has fewer eligible questions.
+        """
+        if count <= 0:
+            return []
+
+        variants = list(
+            Question.select().where(
+                (Question.questions_group == group.id)
+                & (Question.parent_question.is_null())
+                & (Question.status == QuestionStatus.APPROVED.value)
+            )
+        )
+        if not variants:
+            return []
+
+        if question_type:
+            types_to_match = (
+                question_type if isinstance(question_type, list) else [question_type]
+            )
+            variants = [v for v in variants if v.question_type in types_to_match]
+            if not variants:
+                return []
+
+        selected = []
+        pool = list(variants)
+        k = min(count, len(pool))
+
+        for _ in range(k):
+            weights = [1.0 / (v.variant_existence_count + 1) for v in pool]
+            total = sum(weights)
+            probs = [w / total for w in weights]
+            idx = random.choices(range(len(pool)), weights=probs, k=1)[0]
+            selected.append(pool[idx])
+            pool.pop(idx)
+
+        return selected
+
+    def _distribute_slots(self, ranked_groups: List[QuestionGroup], top_k: int) -> dict:
+        """Distribute top_k slots across ranked groups proportionally.
+
+        Returns dict mapping group → slot_count.
+
+        Example: 4 groups, top_k=15 → {g0: 4, g1: 4, g2: 4, g3: 3}
+        """
+        if not ranked_groups:
+            return {}
+
+        n = len(ranked_groups)
+        base_slots = top_k // n
+        remainder = top_k % n
+
+        return {
+            group: base_slots + (1 if i < remainder else 0)
+            for i, group in enumerate(ranked_groups)
+        }
+
+    def _shuffle_answers(
+        self, question: Question, rng: random.Random = None
+    ) -> List[int]:
         answers = self._answer_repo.get_by_question(question.id)
         indices = list(range(len(answers)))
         _rng = rng or random
         _rng.shuffle(indices)
         return indices
-

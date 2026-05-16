@@ -6,6 +6,7 @@ from uuid import UUID
 from peewee import fn
 from src.entities.question import Question
 from src.shared.base.base_repo import BaseRepo
+from src.shared.constants.question import QuestionStatus
 
 
 class QuestionRepository(BaseRepo[Question]):
@@ -40,23 +41,23 @@ class QuestionRepository(BaseRepo[Question]):
 
     def get_by_document(self, document_id: UUID) -> List[Question]:
         from src.entities.page import Page
+
         return list(
             Question.select()
             .join(Page)
             .where(
-                (Page.document == document_id)
-                & (Question.parent_question.is_null())
+                (Page.document == document_id) & (Question.parent_question.is_null())
             )
         )
 
     def count_by_document(self, document_id: UUID) -> int:
         from src.entities.page import Page
+
         return (
             Question.select()
             .join(Page)
             .where(
-                (Page.document == document_id)
-                & (Question.parent_question.is_null())
+                (Page.document == document_id) & (Question.parent_question.is_null())
             )
             .count()
         )
@@ -127,6 +128,7 @@ class QuestionRepository(BaseRepo[Question]):
         limit: int = 20,
     ) -> List[Question]:
         from src.entities.question_group import QuestionGroup
+
         query = (
             Question.select()
             .join(QuestionGroup, on=(Question.questions_group == QuestionGroup.id))
@@ -149,6 +151,28 @@ class QuestionRepository(BaseRepo[Question]):
             query = query.where(Question.status == status)
         return list(query.offset(offset).limit(limit))
 
+    def count_by_filters(
+        self,
+        subject: Optional[str] = None,
+        topics: Optional[List[str]] = None,
+        difficulty: Optional[str] = None,
+        question_types: Optional[List[str]] = None,
+    ) -> int:
+        query = (
+            Question.select()
+            .where((Question.parent_question.is_null()))
+            .where(Question.status == QuestionStatus.APPROVED.value)
+        )
+        if subject:
+            query = query.where(Question.subject == subject)
+        if topics:
+            query = query.where(Question.topic.in_(topics))
+        if difficulty:
+            query = query.where(Question.difficulty == difficulty)
+        if question_types:
+            query = query.where(Question.question_type.in_(question_types))
+        return query.count()
+
     def count_filtered_by_user(
         self,
         user_id: UUID,
@@ -160,6 +184,7 @@ class QuestionRepository(BaseRepo[Question]):
         status: Optional[int] = None,
     ) -> int:
         from src.entities.question_group import QuestionGroup
+
         query = (
             Question.select()
             .join(QuestionGroup, on=(Question.questions_group == QuestionGroup.id))

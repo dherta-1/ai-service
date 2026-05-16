@@ -57,7 +57,9 @@ class ExamAttemptService:
             # Try to randomly select an existing instance from the template
             instance = self._instance_repo.get_random_instance(template_id)
             if not instance:
-                raise ValueError("No eligible exam instances available for this template")
+                raise ValueError(
+                    "No eligible exam instances available for this template"
+                )
             if instance.status == ExamInstanceStatus.REJECTED:
                 raise ValueError("Selected exam instance is not eligible")
             self._ensure_instance_eligible(instance)
@@ -75,6 +77,31 @@ class ExamAttemptService:
         attempt = self._attempt_repo.create_attempt(
             user_id=user.id,
             exam_template_id=template_id,
+            exam_instance_id=instance.id,
+        )
+
+        attempt_token = self._token_service.generate_attempt_token(str(attempt.id))
+        questions, _ = self._build_questions_payload(attempt.id, instance)
+
+        return {
+            "attempt_token": attempt_token,
+            "expires_at": self._resolve_expires_at(attempt_token).isoformat(),
+            "started_at": attempt.started_at.isoformat(),
+            "total_questions": len(questions),
+            "questions": questions,
+        }
+
+    def start_attempt_from_instance(self, instance_id: UUID, user: User) -> dict:
+        instance = self._instance_repo.get_by_id(instance_id)
+        if not instance:
+            raise ValueError("Exam instance not found")
+        if instance.status == ExamInstanceStatus.REJECTED:
+            raise ValueError("Exam instance is not eligible")
+        self._ensure_instance_eligible(instance)
+
+        attempt = self._attempt_repo.create_attempt(
+            user_id=user.id,
+            exam_template_id=UUID(str(instance.exam_template_id)),
             exam_instance_id=instance.id,
         )
 
@@ -233,21 +260,31 @@ class ExamAttemptService:
         self, user: User, page: int = 1, per_page: int = 10
     ) -> tuple[list[dict], int]:
         attempts, total = self._attempt_repo.list_by_user(user.id, page, per_page)
-        template_ids = list({a.exam_template_id for a in attempts if a.exam_template_id})
+        template_ids = list(
+            {a.exam_template_id for a in attempts if a.exam_template_id}
+        )
         templates = {str(t.id): t for t in self._template_repo.get_by_ids(template_ids)}
         data = []
         for attempt in attempts:
             tmpl = templates.get(str(attempt.exam_template_id))
-            data.append({
-                "id": str(attempt.id),
-                "exam_template_id": attempt.exam_template_id,
-                "template_name": tmpl.name if tmpl else None,
-                "template_subject": tmpl.subject if tmpl else None,
-                "status": attempt.status,
-                "score": float(attempt.score) if attempt.score is not None else None,
-                "started_at": attempt.started_at.isoformat(),
-                "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
-            })
+            data.append(
+                {
+                    "id": str(attempt.id),
+                    "exam_template_id": attempt.exam_template_id,
+                    "template_name": tmpl.name if tmpl else None,
+                    "template_subject": tmpl.subject if tmpl else None,
+                    "status": attempt.status,
+                    "score": (
+                        float(attempt.score) if attempt.score is not None else None
+                    ),
+                    "started_at": attempt.started_at.isoformat(),
+                    "submitted_at": (
+                        attempt.submitted_at.isoformat()
+                        if attempt.submitted_at
+                        else None
+                    ),
+                }
+            )
         return data, total
 
     def get_attempt_detail(self, attempt_id: UUID, user: User) -> dict:
@@ -288,16 +325,26 @@ class ExamAttemptService:
             qid = answer.question_id
             if qid not in question_no_map:
                 continue
-            details.append({
-                "question_no": question_no_map[qid],
-                "question_text": question_text_map.get(qid),
-                "selected_answer": answer_text_map.get(answer.selected_answer_id) if answer.selected_answer_id else None,
-                "correct_answer": correct_answer_map.get(qid),
-                "is_correct": answer.is_correct,
-            })
+            details.append(
+                {
+                    "question_no": question_no_map[qid],
+                    "question_text": question_text_map.get(qid),
+                    "selected_answer": (
+                        answer_text_map.get(answer.selected_answer_id)
+                        if answer.selected_answer_id
+                        else None
+                    ),
+                    "correct_answer": correct_answer_map.get(qid),
+                    "is_correct": answer.is_correct,
+                }
+            )
         details.sort(key=lambda d: d["question_no"])
 
-        tmpl = self._template_repo.get_by_id(UUID(attempt.exam_template_id)) if attempt.exam_template_id else None
+        tmpl = (
+            self._template_repo.get_by_id(UUID(attempt.exam_template_id))
+            if attempt.exam_template_id
+            else None
+        )
         return {
             "id": str(attempt.id),
             "template_name": tmpl.name if tmpl else None,
@@ -305,7 +352,9 @@ class ExamAttemptService:
             "status": attempt.status,
             "score": float(attempt.score) if attempt.score is not None else None,
             "started_at": attempt.started_at.isoformat(),
-            "submitted_at": attempt.submitted_at.isoformat() if attempt.submitted_at else None,
+            "submitted_at": (
+                attempt.submitted_at.isoformat() if attempt.submitted_at else None
+            ),
             "total_questions": len(question_no_map),
             "correct_count": len([d for d in details if d["is_correct"]]),
             "details": details,
@@ -370,7 +419,9 @@ class ExamAttemptService:
         )
         # Filter to only eligible types instead of rejecting
         eligible_types = [t for t in types if t in ELIGIBLE_QUESTION_TYPES]
-        section.question_type = eligible_types if eligible_types else list(ELIGIBLE_QUESTION_TYPES)
+        section.question_type = (
+            eligible_types if eligible_types else list(ELIGIBLE_QUESTION_TYPES)
+        )
         return section
 
     def _ensure_instance_eligible(self, instance: ExamInstance) -> None:
@@ -494,8 +545,16 @@ class ExamAttemptService:
         normalized = []
         for answer in answers:
             # Handle both dict and Pydantic model objects
-            question_token = answer.question_token if hasattr(answer, 'question_token') else answer.get("question_token")
-            option_token = answer.selected_option_token if hasattr(answer, 'selected_option_token') else answer.get("selected_option_token")
+            question_token = (
+                answer.question_token
+                if hasattr(answer, "question_token")
+                else answer.get("question_token")
+            )
+            option_token = (
+                answer.selected_option_token
+                if hasattr(answer, "selected_option_token")
+                else answer.get("selected_option_token")
+            )
             if not question_token:
                 continue
 
