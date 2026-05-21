@@ -1,14 +1,19 @@
+name: ai-service-dev
+
 services:
   postgres:
-    image: postgres:16-alpine
+    image: ankane/pgvector:latest
+    container_name: ai-service-postgres
     environment:
+      POSTGRES_DB: ai_service
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: fastapi_db
+      POSTGRES_PASSWORD: password
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    networks:
+      - app-network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 10s
@@ -17,26 +22,102 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: ai-service-redis
     ports:
       - "6379:6379"
     volumes:
       - redis_data:/data
+    networks:
+      - app-network
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 5
 
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: ai-service-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: ai-service-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    networks:
+      - app-network
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "kafka-broker-api-versions.sh",
+          "--bootstrap-servers",
+          "localhost:9092",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: ai-service-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+      MINIO_CONSOLE_ADDRESS: ":9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   api:
-    build: .
+    image: dherta-backend:latest
+    container_name: ai-service-api
     ports:
       - "8000:8000"
       - "50051:50051"
     environment:
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fastapi_db
+      MODE: api
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/ai_service
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       GRPC_PORT: 50051
+      AWS_S3_BUCKET: ai-service-documents
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://minio:9000
+      DEBUG: "true"
+      LOG_RESULTS: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,22 +125,87 @@ services:
         condition: service_healthy
       kafka:
         condition: service_healthy
+      minio:
+        condition: service_healthy
     volumes:
-      - .:/app
+      - ../../../:/app
+    networks:
+      - app-network
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s
 
-  worker:
-    build: .
+  document-worker:
+    image: dherta-backend:latest
+    container_name: ai-service-document-worker
     environment:
-      WORKER_MODE: "true"
-      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fastapi_db
+      MODE: document-worker
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/ai_service
       REDIS_URL: redis://redis:6379/0
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AWS_S3_BUCKET: ai-service-documents
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://minio:9000
+      DEBUG: "true"
+      LOG_RESULTS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ../../../:/app
+    networks:
+      - app-network
+
+  questions-worker:
+    image: dherta-backend:latest
+    container_name: ai-service-questions-worker
+    environment:
+      MODE: questions-worker
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/ai_service
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      AWS_S3_BUCKET: ai-service-documents
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin
+      MINIO_ENDPOINT: http://minio:9000
+      DEBUG: "true"
+      LOG_RESULTS: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - ../../../:/app
+    networks:
+      - app-network
+
+  audit-log-worker:
+    build:
+      context: ../../..
+      dockerfile: services/ai-service/Dockerfile
+    container_name: ai-service-audit-log-worker
+    environment:
+      MODE: audit-log-worker
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/ai_service
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      DEBUG: "true"
+      LOG_RESULTS: "true"
     depends_on:
       postgres:
         condition: service_healthy
@@ -68,8 +214,18 @@ services:
       kafka:
         condition: service_healthy
     volumes:
-      - .:/app
+      - ../../../:/app
+    networks:
+      - app-network
 
 volumes:
   postgres_data:
   redis_data:
+  zookeeper_data:
+  zookeeper_logs:
+  kafka_data:
+  minio_data:
+
+networks:
+  app-network:
+    driver: bridge

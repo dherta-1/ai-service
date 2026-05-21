@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import APIRouter, Query, UploadFile, File, Form, Depends, status
+from fastapi import APIRouter, Query, UploadFile, File, Form, Depends, status, Request
 
 from src.container import get_di_container
 from src.shared.response.exception_handler import NotFoundException, BadRequestException, ForbiddenException
@@ -13,6 +13,8 @@ from src.shared.response.response_models import (
 from src.shared.auth_deps import get_current_user, require_admin
 from src.entities.user import User
 from src.shared.constants.user import Role
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 
 router = APIRouter()
 
@@ -31,6 +33,7 @@ async def upload_document(
     s3_prefix: str = Form(default="documents"),
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Stage 1: Upload document file to S3 and create metadata (no processing).
 
@@ -46,6 +49,18 @@ async def upload_document(
             s3_prefix=s3_prefix,
             uploaded_by_id=current_user.id,
         )
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.document,
+            action_type=ActionType.CREATE,
+            actor_id=current_user.id,
+            entity_id=document.id,
+            before_data=None,
+            after_data={"name": document.name, "status": document.status},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(
             data={
                 "document_id": str(document.id),
@@ -65,6 +80,7 @@ async def batch_upload_documents(
     s3_prefix: str = Form(default="documents"),
     service: DocumentService = Depends(get_document_service),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Batch upload multiple document files to S3 with metadata creation.
 
@@ -89,6 +105,18 @@ async def batch_upload_documents(
             s3_prefix=s3_prefix,
             uploaded_by_id=current_user.id,
         )
+
+        if len(successful) > 0:
+            log_audit(
+                actor_type=ActorType.user,
+                entity_type=EntityType.document,
+                action_type=ActionType.CREATE,
+                actor_id=current_user.id,
+                entity_id=None,
+                before_data=None,
+                after_data={"count": len(successful), "s3_prefix": s3_prefix},
+                request_ip=request.client.host if request else None,
+            )
 
         return create_response(
             data={

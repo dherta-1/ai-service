@@ -1,6 +1,6 @@
 from uuid import UUID
 from typing import Optional
-from fastapi import APIRouter, Query, Body, Depends
+from fastapi import APIRouter, Query, Body, Depends, Request
 
 from src.container import get_di_container
 from src.shared.response.exception_handler import NotFoundException, BadRequestException
@@ -16,6 +16,8 @@ from src.shared.response.response_models import (
 from src.shared.auth_deps import get_current_user
 from src.entities.user import User
 from src.entities.question_group import QuestionGroup
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -189,6 +191,7 @@ async def get_questions_by_page(
 async def batch_update_question_status(
     body: dict = Body(...),
     service: QuestionService = Depends(get_question_service),
+    request: Request = None,
 ):
     """Batch update question approval status for multiple questions.
 
@@ -214,6 +217,18 @@ async def batch_update_question_status(
         raise ValueError("Invalid UUID format in question_ids")
 
     updated_count, failed_ids = service.batch_update_status(uuids, status)
+
+    if updated_count > 0:
+        log_audit(
+            actor_type=ActorType.admin,
+            entity_type=EntityType.question,
+            action_type=ActionType.BATCH_UPDATE,
+            actor_id=None,
+            entity_id=None,
+            before_data={"count": len(uuids)},
+            after_data={"count": updated_count, "status": status},
+            request_ip=request.client.host if request else None,
+        )
 
     return create_response(
         data={
@@ -277,12 +292,27 @@ async def update_question_status(
     question_id: UUID,
     status: int = Query(..., ge=0, le=2),
     service: QuestionService = Depends(get_question_service),
+    request: Request = None,
 ):
     """Update question approval status. 0=pending, 1=approved, 2=rejected."""
     question = service.get_by_id(question_id)
     if not question:
         raise NotFoundException("Question not found")
+
+    old_status = question.status
     service.update_status(question_id, status)
+
+    log_audit(
+        actor_type=ActorType.admin,
+        entity_type=EntityType.question,
+        action_type=ActionType.UPDATE,
+        actor_id=None,
+        entity_id=question_id,
+        before_data={"status": old_status},
+        after_data={"status": status},
+        request_ip=request.client.host if request else None,
+    )
+
     return create_response(
         data={"id": str(question_id), "status": status},
         message="Question status updated",
@@ -294,6 +324,7 @@ async def submit_question_review(
     question_id: UUID,
     body: dict = Body(...),
     service: QuestionService = Depends(get_question_service),
+    request: Request = None,
 ):
     """Submit manual corrections for a question's answers."""
     question = service.get_by_id(question_id)
@@ -302,7 +333,19 @@ async def submit_question_review(
 
     answers = body.get("answers")
     if answers is not None:
+        _, old_answers = service.get_with_answers(question_id)
         service.update_answers(question_id, answers)
+
+        log_audit(
+            actor_type=ActorType.admin,
+            entity_type=EntityType.question,
+            action_type=ActionType.UPDATE,
+            actor_id=None,
+            entity_id=question_id,
+            before_data={"answers": [to_dict(a) for a in old_answers] if old_answers else None},
+            after_data={"answers": answers},
+            request_ip=request.client.host if request else None,
+        )
 
     return create_response(
         data={"id": str(question_id), "updated": True},
@@ -318,6 +361,7 @@ async def submit_question_review(
 async def batch_create_questions(
     body: dict = Body(...),
     mutation_service: QuestionMutationService = Depends(get_mutation_service),
+    request: Request = None,
 ):
     """Batch create multiple questions with embedding and group assignment.
 
@@ -349,8 +393,8 @@ async def batch_create_questions(
 
     for idx, q_data in enumerate(questions_data):
         try:
-            request = CreateQuestionRequest(**q_data)
-            question = await mutation_service.create_question(request)
+            req = CreateQuestionRequest(**q_data)
+            question = await mutation_service.create_question(req)
             data = QuestionDetailResponse.model_validate(question).model_dump()
             created_questions.append(data)
         except Exception as e:
@@ -358,6 +402,18 @@ async def batch_create_questions(
                 "index": idx,
                 "error": str(e)
             })
+
+    if len(created_questions) > 0:
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.CREATE,
+            actor_id=None,
+            entity_id=None,
+            before_data=None,
+            after_data={"count": len(created_questions)},
+            request_ip=request.client.host if request else None,
+        )
 
     return create_response(
         data={
@@ -374,11 +430,24 @@ async def batch_create_questions(
 async def create_question(
     body: CreateQuestionRequest,
     mutation_service: QuestionMutationService = Depends(get_mutation_service),
+    request: Request = None,
 ):
     """Create a new question with embedding and group assignment."""
     try:
         question = await mutation_service.create_question(body)
         data = QuestionDetailResponse.model_validate(question).model_dump()
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.CREATE,
+            actor_id=None,
+            entity_id=question.id,
+            before_data=None,
+            after_data={"question_text": question.question_text, "question_type": question.question_type},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(
             data=data,
             message="Question created successfully",
@@ -392,11 +461,26 @@ async def update_question(
     question_id: UUID,
     body: UpdateQuestionRequest,
     mutation_service: QuestionMutationService = Depends(get_mutation_service),
+    service: QuestionService = Depends(get_question_service),
+    request: Request = None,
 ):
     """Update a question with optional re-embedding and re-grouping."""
     try:
+        old_question = service.get_by_id(question_id)
         question = await mutation_service.update_question(question_id, body)
         data = QuestionDetailResponse.model_validate(question).model_dump()
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.UPDATE,
+            actor_id=None,
+            entity_id=question_id,
+            before_data={"question_text": old_question.question_text if old_question else None},
+            after_data={"question_text": question.question_text},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(
             data=data,
             message="Question updated successfully",
@@ -412,11 +496,27 @@ async def update_question(
 async def delete_question(
     question_id: UUID,
     mutation_service: QuestionMutationService = Depends(get_mutation_service),
+    service: QuestionService = Depends(get_question_service),
+    request: Request = None,
 ):
     """Delete a question and its sub-questions."""
+    question_to_delete = service.get_by_id(question_id)
     deleted = mutation_service.delete_question(question_id)
     if not deleted:
         raise NotFoundException("Question not found")
+
+    if question_to_delete:
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.DELETE,
+            actor_id=None,
+            entity_id=question_id,
+            before_data={"question_text": question_to_delete.question_text},
+            after_data=None,
+            request_ip=request.client.host if request else None,
+        )
+
     return create_response(
         data={"id": str(question_id), "deleted": True},
         message="Question deleted successfully",

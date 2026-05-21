@@ -1,7 +1,7 @@
 import logging
 from typing import List
 from uuid import UUID
-from fastapi import APIRouter, Depends, Body, status
+from fastapi import APIRouter, Depends, Body, status, Request
 
 from src.container import get_di_container
 from src.lib.event_bus.kafka.producer import KafkaProducerImpl
@@ -17,6 +17,8 @@ from src.dtos.ai.req import GenerateSimilarQuestionsRequest
 from src.entities.user import User
 from src.shared.constants.user import Role
 from src.shared.response.response_models import ApiResponse
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +44,7 @@ async def queue_documents_for_extraction(
     doc_service: DocumentService = Depends(get_document_service),
     kafka_producer: KafkaProducerImpl = Depends(get_kafka_producer),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ):
     """Stage 2: Queue documents for extraction (produce document_extraction_requested events).
 
@@ -95,6 +98,17 @@ async def queue_documents_for_extraction(
                 topic="document_extraction_requested",
             )
 
+            log_audit(
+                actor_type=ActorType.admin if current_user.role == "admin" else ActorType.user,
+                entity_type=EntityType.document,
+                action_type=ActionType.QUEUE,
+                actor_id=current_user.id,
+                entity_id=doc_id,
+                before_data={"status": document.status},
+                after_data={"status": "queued"},
+                request_ip=request.client.host if request else None,
+            )
+
             queued.append(str(doc_id))
             kafka_producer.flush()  # Ensure the message is sent immediately
         except Exception as e:
@@ -108,9 +122,10 @@ async def queue_documents_for_extraction(
 
 @router.post("/generate-similar-questions", status_code=status.HTTP_200_OK)
 async def generate_similar_questions(
-    request: GenerateSimilarQuestionsRequest,
+    req: GenerateSimilarQuestionsRequest,
     service: GenerateSimilarQuestionsService = Depends(get_similar_questions_service),
     current_user: User = Depends(get_current_user),
+    request: Request = None,
 ) -> ApiResponse:
     """Generate similar questions using RAG pattern.
 
@@ -128,10 +143,22 @@ async def generate_similar_questions(
     """
     try:
         result = await service.generate_similar_questions(
-            question_id=request.question_id,
-            k=request.k,
-            vector_threshold=request.vector_threshold,
+            question_id=req.question_id,
+            k=req.k,
+            vector_threshold=req.vector_threshold,
         )
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.GENERATE,
+            actor_id=current_user.id,
+            entity_id=req.question_id,
+            before_data=None,
+            after_data={"total_generated": result.get("total_generated", 0), "k": req.k},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(data=result, message="Generated similar questions")
     except ValueError as e:
         raise NotFoundException(str(e))

@@ -49,6 +49,13 @@ def run_questions_extraction_worker() -> None:
 
     worker_main()
 
+def run_audit_log_worker() -> None:
+    """Run the questions extraction event worker."""
+    logger.info("Starting questions extraction worker...")
+    from src.workers.audit_log_worker import main as worker_main
+
+    worker_main()
+
 
 def main():
     parser = argparse.ArgumentParser(
@@ -58,7 +65,7 @@ def main():
     parser.add_argument(
         "mode",
         type=str,
-        choices=["api", "document-worker", "questions-worker"],
+        choices=["api", "document-worker", "questions-worker", "audit-log-worker"],
         help="Runtime mode to start",
     )
 
@@ -68,7 +75,7 @@ def main():
         sys.exit(1)
 
     args = parser.parse_args()
-    mode: Literal["api", "document-worker", "questions-worker"] = args.mode
+    mode: Literal["api", "document-worker", "questions-worker", "audit-log-worker"] = args.mode
 
     try:
         if mode == "api":
@@ -77,6 +84,8 @@ def main():
             run_document_extraction_worker()
         elif mode == "questions-worker":
             run_questions_extraction_worker()
+        elif mode == "audit-log-worker":
+            run_audit_log_worker()
     except KeyboardInterrupt:
         logger.info("Interrupted by user")
         sys.exit(0)

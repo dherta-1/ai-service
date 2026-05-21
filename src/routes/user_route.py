@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Query, status, Request
 
 from src.container import get_di_container
 from src.dtos.user.req import UpdateUserRequest
@@ -11,6 +11,9 @@ from src.services.user_service import UserService
 from src.shared.auth_deps import require_admin
 from src.shared.response.exception_handler import NotFoundException
 from src.shared.response.response_models import create_paginated_response, create_response
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.dto_utils import to_dict
 
 router = APIRouter()
 
@@ -54,13 +57,28 @@ async def update_user(
     user_id: UUID,
     body: UpdateUserRequest,
     service: UserService = Depends(_get_user_service),
+    request: Request = None,
 ):
     updates = body.model_dump(exclude_none=True)
     if not updates:
         raise NotFoundException("No fields to update")
+
+    before_user = service.get_by_id(user_id)
     user = service.update_user(user_id, **updates)
     if not user:
         raise NotFoundException("User not found")
+
+    log_audit(
+        actor_type=ActorType.admin,
+        entity_type=EntityType.user,
+        action_type=ActionType.UPDATE,
+        actor_id=None,
+        entity_id=user_id,
+        before_data={"email": before_user.email, "is_active": before_user.is_active} if before_user else None,
+        after_data={"email": user.email, "is_active": user.is_active},
+        request_ip=request.client.host if request else None,
+    )
+
     return create_response(
         data=UserResponse.model_validate(user).model_dump(),
         message="User updated successfully",
@@ -71,7 +89,21 @@ async def update_user(
 async def delete_user(
     user_id: UUID,
     service: UserService = Depends(_get_user_service),
+    request: Request = None,
 ):
+    user_to_delete = service.get_by_id(user_id)
     success = service.delete_user(user_id)
     if not success:
         raise NotFoundException("User not found")
+
+    if user_to_delete:
+        log_audit(
+            actor_type=ActorType.admin,
+            entity_type=EntityType.user,
+            action_type=ActionType.DELETE,
+            actor_id=None,
+            entity_id=user_id,
+            before_data={"email": user_to_delete.email, "is_active": user_to_delete.is_active},
+            after_data=None,
+            request_ip=request.client.host if request else None,
+        )

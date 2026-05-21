@@ -111,9 +111,11 @@ def initialize_event_handlers_by_profile(profile: str = "all") -> None:
         - all:                  full worker — all handlers
         - document-extraction:  OCR+validate → emit question_extraction_requested per page
         - question-extraction:  extract+embed+group+persist → mark document COMPLETED inline
+        - audit-log:            consume audit_log_created events and persist to database
     """
     from src.handlers.document_extraction_handler import DocumentExtractionHandler
     from src.handlers.question_extraction_handler import QuestionExtractionHandler
+    from src.handlers.audit_log_handler import AuditLogEventHandler
 
     dispatcher = get_event_dispatcher()
 
@@ -122,7 +124,7 @@ def initialize_event_handlers_by_profile(profile: str = "all") -> None:
     dispatcher.wildcard_handlers = []
 
     profile = (profile or "all").lower()
-    if profile not in {"all", "document-extraction", "question-extraction"}:
+    if profile not in {"all", "document-extraction", "question-extraction", "audit-log"}:
         raise ValueError(f"Unsupported handler profile: {profile}")
 
     if profile in {"all", "document-extraction"}:
@@ -130,6 +132,9 @@ def initialize_event_handlers_by_profile(profile: str = "all") -> None:
 
     if profile in {"all", "question-extraction"}:
         dispatcher.register_handler(QuestionExtractionHandler())
+
+    if profile in {"all", "audit-log"}:
+        dispatcher.register_handler(AuditLogEventHandler())
 
     logger.info(
         "Event handlers initialized for profile '%s' — Topics: %s",

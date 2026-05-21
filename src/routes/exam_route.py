@@ -5,7 +5,7 @@ import logging
 from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import Response
 
 from src.container import get_di_container
@@ -17,6 +17,8 @@ from src.shared.response.exception_handler import (
     ConflictException,
     UnauthorizedException,
 )
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 from src.dtos.exam.req import (
     GenerateBaseExamRequest,
     ReplaceQuestionRequest,
@@ -68,9 +70,13 @@ async def save_template(
     body: SaveExamTemplateRequest,
     current_user: User = Depends(get_current_user),
     service: ExamService = Depends(get_exam_service),
+    request: Request = None,
 ):
     """Create or update an exam template with optional default section configs."""
     try:
+        is_update = body.template_id is not None
+        old_template = service.get_template(body.template_id) if is_update else None
+
         template = service.save_template(
             name=body.name,
             subject=body.subject,
@@ -78,6 +84,18 @@ async def save_template(
             template_id=body.template_id,
             created_by_id=current_user.id,
         )
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.exam_template,
+            action_type=ActionType.UPDATE if is_update else ActionType.CREATE,
+            actor_id=current_user.id,
+            entity_id=template.id,
+            before_data={"name": old_template.name, "subject": old_template.subject} if old_template else None,
+            after_data={"name": template.name, "subject": template.subject},
+            request_ip=request.client.host if request else None,
+        )
+
         data = to_dict(template)
         if template.generation_config:
             try:
@@ -463,6 +481,7 @@ async def update_exam_status(
     body: UpdateExamStatusRequest,
     current_user: User = Depends(get_current_user),
     service: ExamService = Depends(get_exam_service),
+    request: Request = None,
 ):
     """Update exam instance status. 0=pending, 1=accepted, 2=rejected.
 
@@ -477,7 +496,20 @@ async def update_exam_status(
         if current_user.role != "admin" and exam.created_by_id != current_user.id:
             raise ValueError(f"Exam instance {exam_id} not found")
 
+        old_status = exam.status
         exam = service.update_exam_status(exam_id, body.status)
+
+        log_audit(
+            actor_type=ActorType.admin if current_user.role == "admin" else ActorType.user,
+            entity_type=EntityType.exam_instance,
+            action_type=ActionType.UPDATE,
+            actor_id=current_user.id,
+            entity_id=exam_id,
+            before_data={"status": old_status},
+            after_data={"status": exam.status},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(
             data={"id": str(exam_id), "status": exam.status},
             message="Exam status updated successfully",
@@ -492,6 +524,7 @@ async def replace_question(
     body: ReplaceQuestionRequest,
     current_user: User = Depends(get_current_user),
     service: ExamService = Depends(get_exam_service),
+    request: Request = None,
 ):
     """Replace a question variant in an exam with another from the same group.
 
@@ -511,6 +544,18 @@ async def replace_question(
             qet_id=body.question_exam_test_id,
             new_question_id=body.new_question_id,
         )
+
+        log_audit(
+            actor_type=ActorType.admin if current_user.role == "admin" else ActorType.user,
+            entity_type=EntityType.exam_instance,
+            action_type=ActionType.REPLACE,
+            actor_id=current_user.id,
+            entity_id=exam_id,
+            before_data={"question_exam_test_id": str(body.question_exam_test_id)},
+            after_data={"question_exam_test_id": str(qet.id), "new_question_id": str(body.new_question_id)},
+            request_ip=request.client.host if request else None,
+        )
+
         return create_response(
             data={
                 "question_exam_test_id": str(qet.id),

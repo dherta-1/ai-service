@@ -49,6 +49,7 @@ from src.routes.task_route import router as task_router
 from src.routes.user_route import router as user_router
 from src.routes.subject_route import router as subject_router
 from src.routes.topic_route import router as topic_router
+from src.routes.audit_log_route import router as audit_log_router
 from src.shared.response.exception_handler import register_exception_handlers
 from src.shared.response.response_models import create_response
 
@@ -62,6 +63,7 @@ from src.services.page_service import PageService
 from src.services.user_service import UserService
 from src.services.subject_service import SubjectService
 from src.services.topic_service import TopicService
+from src.services.audit_log_service import AuditLogService
 from src.services.core.document_extraction_service import DocumentExtractionService
 from src.services.core.question_extraction_service import QuestionExtractionService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
@@ -88,6 +90,7 @@ from src.entities.topic import Topic
 from src.entities.user import User
 from src.entities.user_test_attempt import UserTestAttempt
 from src.entities.user_test_attempt_answer import UserTestAttemptAnswer
+from src.entities.audit_log import AuditLog
 
 logging.basicConfig(
     level=logging.INFO,
@@ -191,6 +194,7 @@ def setup_di_container() -> None:
     container.register_singleton("exam_attempt_service", ExamAttemptService())
     container.register_singleton("subject_service", SubjectService(SubjectRepository()))
     container.register_singleton("topic_service", TopicService(TopicRepository()))
+    container.register_singleton("audit_log_service", AuditLogService())
 
     # Register core extraction services as factories (non-singleton)
     container.register_type(
@@ -270,6 +274,7 @@ def bind_models_to_database() -> None:
             Topic,
             UserTestAttempt,
             UserTestAttemptAnswer,
+            AuditLog,
         ]
 
         # Bind each model to the database
@@ -376,6 +381,7 @@ def create_app() -> FastAPI:
     app.include_router(question_router, prefix="/questions", tags=["questions"])
     app.include_router(subject_router, prefix="/subjects", tags=["subjects"])
     app.include_router(topic_router, prefix="/topics", tags=["topics"])
+    app.include_router(audit_log_router, prefix="/audit-logs", tags=["audit-logs"])
 
     @app.get("/")
     async def root():
