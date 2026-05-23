@@ -7,10 +7,14 @@ from fastapi import APIRouter, Depends, Query, status, Request
 from src.container import get_di_container
 from src.dtos.user.req import UpdateUserRequest
 from src.dtos.user.res import UserResponse
+from src.entities.user import User
 from src.services.user_service import UserService
 from src.shared.auth_deps import require_admin
 from src.shared.response.exception_handler import NotFoundException
-from src.shared.response.response_models import create_paginated_response, create_response
+from src.shared.response.response_models import (
+    create_paginated_response,
+    create_response,
+)
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 from src.shared.helpers.dto_utils import to_dict
@@ -42,6 +46,7 @@ async def list_users(
 async def get_user(
     user_id: UUID,
     service: UserService = Depends(_get_user_service),
+    _current_user: User = Depends(require_admin),
 ):
     user = service.get_by_id(user_id)
     if not user:
@@ -58,6 +63,7 @@ async def update_user(
     body: UpdateUserRequest,
     service: UserService = Depends(_get_user_service),
     request: Request = None,
+    _current_user: User = Depends(require_admin),
 ):
     updates = body.model_dump(exclude_none=True)
     if not updates:
@@ -72,10 +78,10 @@ async def update_user(
         actor_type=ActorType.admin,
         entity_type=EntityType.user,
         action_type=ActionType.UPDATE,
-        actor_id=None,
+        actor_id=_current_user.id,
         entity_id=user_id,
-        before_data={"email": before_user.email, "is_active": before_user.is_active} if before_user else None,
-        after_data={"email": user.email, "is_active": user.is_active},
+        before_data={"email": before_user.email} if before_user else None,
+        after_data={"email": user.email},
         request_ip=request.client.host if request else None,
     )
 
@@ -85,11 +91,15 @@ async def update_user(
     )
 
 
-@router.delete("/{user_id}", status_code=status.HTTP_204_NO_CONTENT, dependencies=[Depends(require_admin)])
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_user(
     user_id: UUID,
     service: UserService = Depends(_get_user_service),
     request: Request = None,
+    _current_user: User = Depends(require_admin),
 ):
     user_to_delete = service.get_by_id(user_id)
     success = service.delete_user(user_id)
@@ -101,9 +111,9 @@ async def delete_user(
             actor_type=ActorType.admin,
             entity_type=EntityType.user,
             action_type=ActionType.DELETE,
-            actor_id=None,
+            actor_id=_current_user.id,
             entity_id=user_id,
-            before_data={"email": user_to_delete.email, "is_active": user_to_delete.is_active},
+            before_data={"email": user_to_delete.email},
             after_data=None,
             request_ip=request.client.host if request else None,
         )

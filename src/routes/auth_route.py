@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status, Request
 
 from src.container import get_di_container
 from src.dtos.auth.req import (
@@ -13,14 +13,21 @@ from src.dtos.auth.req import (
 )
 from src.dtos.auth.res import UserMeResponse
 from src.services.auth_service import AuthService
+from src.services.user_service import UserService
 from src.shared.auth_deps import get_current_user
 from src.shared.response.response_models import create_response
+from src.shared.logger.audit_logger import log_audit
+from src.shared.constants.audit_log import ActionType, ActorType, EntityType
 
 router = APIRouter()
 
 
 def _get_auth_service() -> AuthService:
     return get_di_container().get("auth_service")
+
+
+def _get_user_service() -> UserService:
+    return get_di_container().get("user_service")
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -41,8 +48,22 @@ async def register(
 async def login(
     body: LoginRequest,
     service: AuthService = Depends(_get_auth_service),
+    user_service: UserService = Depends(_get_user_service),
+    request: Request = None,
 ):
     tokens = await service.login(body.email, body.password)
+    user = user_service.get_by_email(body.email)
+
+    log_audit(
+        actor_type=ActorType.user,
+        entity_type=EntityType.user,
+        action_type=ActionType.LOGIN,
+        actor_id=user.id if user else None,
+        entity_id=user.id if user else None,
+        after_data={"email": user.email} if user else None,
+        request_ip=request.client.host if request else None,
+    )
+
     return create_response(data=tokens, message="Login successful")
 
 
@@ -87,8 +108,27 @@ async def reset_password(
 async def logout(
     body: RefreshRequest,
     service: AuthService = Depends(_get_auth_service),
+    request: Request = None,
 ):
+    user_id = None
+    try:
+        payload = service.decode_token(body.refresh_token)
+        user_id = payload.get("sub")
+    except Exception:
+        pass
+
     await service.logout(body.refresh_token)
+
+    if user_id:
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.user,
+            action_type=ActionType.LOGOUT,
+            actor_id=user_id,
+            entity_id=user_id,
+            request_ip=request.client.host if request else None,
+        )
+
     return create_response(message="Logged out successfully")
 
 

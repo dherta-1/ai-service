@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 
 def _get_kafka_producer():
     from src.container import get_di_container
+
     try:
-        return get_di_container().resolve("kafka_producer")
+        return get_di_container().get("kafka_producer")
     except Exception:
         return None
 
@@ -37,9 +38,15 @@ def log_audit(
     try:
         event = {
             "event_type": "audit_log_created",
-            "actor_type": actor_type if isinstance(actor_type, str) else actor_type.value,
-            "entity_type": entity_type if isinstance(entity_type, str) else entity_type.value,
-            "action_type": action_type if isinstance(action_type, str) else action_type.value,
+            "actor_type": (
+                actor_type if isinstance(actor_type, str) else actor_type.value
+            ),
+            "entity_type": (
+                entity_type if isinstance(entity_type, str) else entity_type.value
+            ),
+            "action_type": (
+                action_type if isinstance(action_type, str) else action_type.value
+            ),
             "actor_id": str(actor_id) if actor_id else None,
             "entity_id": str(entity_id) if entity_id else None,
             "before_data": before_data,

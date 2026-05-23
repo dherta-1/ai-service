@@ -1,0 +1,31 @@
+{
+  "parsing_res_list": [
+    {
+      "block_label": "text",
+      "block_content": "Câu 3. Hai mãu s liu ghép nhóm $M_{1},M_{2}$ có bång tn s ghép nhóm như sau:",
+      "block_bbox": [157, 648, 936, 677],
+      "block_id": 6,
+      "block_order": 6
+    },
+    {
+      "block_label": "table",
+      "block_content": "<html><body><table><tr><td rowspan=\"2\">Nhóm</td><td>[8;10)</td><td>[10;12) 4</td><td>[12;14) 8</td><td>[14;16)</td><td>[16;18)</td></tr><tr><td>$M_{1}$</td><td>Tân s</td><td>3</td><td>6</td><td>4</td></tr></table></body></html>",
+      "block_bbox": [199, 685, 981, 768],
+      "block_id": 7,
+      "block_order": null
+    },
+    {
+      "block_label": "text",
+      "block_content": "D.$x=\\frac{1}{2}.$ ",
+      "block_bbox": [565, 1371, 659, 1427],
+      "block_id": 24,
+      "block_order": 22
+    },
+    {
+      "block_label": "image",
+      "block_bbox": [756, 1219, 1086, 1461],
+      "block_id": 25,
+      "block_order": null
+    }
+  ]
+}

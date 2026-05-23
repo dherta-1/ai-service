@@ -16,12 +16,12 @@ class UserTestAttemptRepository(BaseRepo[UserTestAttempt]):
     def create_attempt(
         self,
         user_id: UUID,
-        exam_template_id: UUID,
+        exam_template_id: Optional[UUID],
         exam_instance_id: UUID,
     ) -> UserTestAttempt:
         return self.create(
             user=user_id,
-            exam_template_id=str(exam_template_id),
+            exam_template_id=str(exam_template_id) if exam_template_id else None,
             exam_instance=exam_instance_id,
             status=UserTestAttemptStatus.IN_PROGRESS,
             started_at=datetime.utcnow(),

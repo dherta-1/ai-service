@@ -69,6 +69,25 @@ class ExamInstanceRepository(BaseRepo[ExamInstance]):
         instances = list(query.paginate(page, per_page))
         return instances, total
 
+    def get_standalone_paginated(
+        self, user_id: Optional[UUID] = None, page: int = 1, per_page: int = 10
+    ) -> tuple[List[ExamInstance], int]:
+        """Get standalone exam instances (exam_template_id = None).
+
+        If user_id provided (non-admin): return only user's instances.
+        If user_id is None (admin): return all instances.
+        """
+        query = ExamInstance.select().where(
+            ExamInstance.exam_template == None  # noqa: E711
+        ).order_by(ExamInstance.created_at.desc())
+
+        if user_id:
+            query = query.where(ExamInstance.created_by == user_id)
+
+        total = query.count()
+        instances = list(query.paginate(page, per_page))
+        return instances, total
+
     def update_status(self, exam_id: UUID, status: int) -> None:
         ExamInstance.update(status=status).where(ExamInstance.id == exam_id).execute()
 

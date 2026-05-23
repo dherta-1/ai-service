@@ -99,9 +99,14 @@ class ExamAttemptService:
             raise ValueError("Exam instance is not eligible")
         self._ensure_instance_eligible(instance)
 
+        template_id = (
+            UUID(str(instance.exam_template_id))
+            if instance.exam_template_id
+            else None
+        )
         attempt = self._attempt_repo.create_attempt(
             user_id=user.id,
-            exam_template_id=UUID(str(instance.exam_template_id)),
+            exam_template_id=template_id,
             exam_instance_id=instance.id,
         )
 

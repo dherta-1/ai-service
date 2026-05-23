@@ -72,6 +72,7 @@ from src.services.core.variant_exam_generation_service import (
     VariantExamGenerationService,
 )
 from src.services.core.question_mutation_service import QuestionMutationService
+from src.services.core.exam_mutation_service import ExamMutationService
 import logging
 from src.entities.answer import Answer
 from src.entities.attempt_token_mapping import AttemptTokenMapping
@@ -244,6 +245,12 @@ def setup_di_container() -> None:
     container.register_type(
         QuestionMutationService,
         lambda: QuestionMutationService(llm_client=container.get("llm_client")),
+    )
+
+    # Register exam mutation service
+    container.register_type(
+        ExamMutationService,
+        lambda: ExamMutationService(),
     )
 
     logger.info("DI container initialized")

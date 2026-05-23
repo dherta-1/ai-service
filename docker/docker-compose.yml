@@ -195,9 +195,7 @@ services:
       - app-network
 
   audit-log-worker:
-    build:
-      context: ../../..
-      dockerfile: services/ai-service/Dockerfile
+    image: dherta-backend:latest
     container_name: ai-service-audit-log-worker
     environment:
       MODE: audit-log-worker

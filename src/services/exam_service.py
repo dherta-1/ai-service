@@ -198,6 +198,16 @@ class ExamService:
     ) -> tuple[List[ExamInstance], int]:
         return self._instance_repo.get_by_template_paginated(template_id, page, per_page)
 
+    def get_standalone_instances_paginated(
+        self, user_id: Optional[UUID] = None, page: int = 1, per_page: int = 10
+    ) -> tuple[List[ExamInstance], int]:
+        """Get standalone exam instances (exam_template_id = None).
+
+        If user_id provided (non-admin): return only user's instances.
+        If user_id is None (admin): return all instances.
+        """
+        return self._instance_repo.get_standalone_paginated(user_id, page, per_page)
+
     def get_all_instances_by_template(
         self, template_id: UUID, user_id: Optional[UUID] = None
     ) -> List[ExamInstance]:

@@ -84,3 +84,24 @@ class UpdateExamStatusRequest(BaseModel):
 class ReplaceQuestionRequest(BaseModel):
     question_exam_test_id: UUID
     new_question_id: UUID                   # must be in same question_group
+
+
+class ManualQuestionEntry(BaseModel):
+    question_id: UUID
+    order_count: int
+
+
+class ManualSectionInput(BaseModel):
+    name: str
+    order_index: int
+    questions: List[ManualQuestionEntry]
+
+
+class CreateManualExamRequest(BaseModel):
+    exam_test_code: str
+    sections: List[ManualSectionInput]
+
+
+class UpdateManualExamRequest(BaseModel):
+    exam_test_code: Optional[str] = None
+    sections: List[ManualSectionInput]

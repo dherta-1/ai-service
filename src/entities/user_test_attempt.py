@@ -15,7 +15,7 @@ from src.shared.constants.exam import UserTestAttemptStatus
 
 class UserTestAttempt(BaseEntity):
     user = ForeignKeyField(User, backref="test_attempts")
-    exam_template_id = CharField(max_length=255)  # UUID as string
+    exam_template_id = CharField(max_length=255, null=True)  # UUID as string
     exam_instance = ForeignKeyField(ExamInstance, backref="attempts", null=True)
     score = DecimalField(max_digits=5, decimal_places=2, null=True)
     status = SmallIntegerField(default=UserTestAttemptStatus.IN_PROGRESS, index=True)

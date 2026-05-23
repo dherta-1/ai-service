@@ -422,8 +422,12 @@ class QuestionExtractionPipeline(
                 # Check if this is a valid JSON escape sequence
                 if i + 1 < len(text):
                     next_char = text[i + 1]
-                    # Valid JSON escapes: \" \\ \/ \b \f \n \r \t \uXXXX
-                    if next_char in '"\\\/bfnrt':
+                    # Valid JSON escapes: \" \\ \/ \b \n \r \t \uXXXX
+                    # NOTE: \f is intentionally excluded — LLM output contains
+                    # LaTeX commands like \frac, \forall etc. that must be
+                    # escaped as \\frac. Treating \f as a form-feed escape
+                    # would silently corrupt these into U+000C + "rac...".
+                    if next_char in '"\\/bnrt':
                         # Valid JSON escape, keep as-is
                         result.append(text[i])
                         i += 1

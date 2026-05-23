@@ -22,6 +22,7 @@ class ActionType(str, Enum):
     UPDATE = "UPDATE"
     DELETE = "DELETE"
     LOGIN = "LOGIN"
+    LOGOUT = "LOGOUT"
     GENERATE = "GENERATE"
     QUEUE = "QUEUE"
     EXPORT = "EXPORT"

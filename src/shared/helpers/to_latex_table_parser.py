@@ -29,15 +29,25 @@ class TableHTMLParser(HTMLParser):
             self.current_table = []
         elif tag in ("tr", "thead", "tbody", "tfoot"):
             if tag == "tr" and self.in_table:
+                # Close previous row if any
+                if self.in_row and self.current_row is not None and self.current_table is not None:
+                    self.current_table.append(self.current_row)
                 self.in_row = True
                 self.current_row = []
         elif tag in ("td", "th") and self.in_row:
+            # Close previous cell if any
+            if self.in_cell and self.current_row is not None:
+                self.current_row.append(self.current_cell.strip())
             self.in_cell = True
             self.current_cell = ""
 
     def handle_endtag(self, tag: str) -> None:
         if tag == "table" and self.in_table:
             self.in_table = False
+            # Finalize current row if any cells were added
+            if self.in_row and self.current_row is not None and self.current_table is not None:
+                self.current_table.append(self.current_row)
+                self.current_row = None
             if self.current_table is not None:
                 self.tables.append(self.current_table)
             self.current_table = None
@@ -178,11 +188,19 @@ def convert_tables_in_text(text: str) -> str:
     # Try to find and convert HTML tables
     html_tables = parse_html_table(text)
     if html_tables:
-        for table in html_tables:
-            latex_table = table_to_latex(table)
-            # Find the HTML table in the original text and replace it
-            # This is a simplification; in production, you might want more precise matching
-            result = result.replace(text, result)  # Placeholder for actual replacement
+        # Find all HTML table tags in the text and replace them with LaTeX equivalents
+        for match in re.finditer(r"<table[^>]*>.*?</table>", result, re.DOTALL):
+            html_table_str = match.group(0)
+            # Re-parse just this table
+            parser = TableHTMLParser()
+            try:
+                parser.feed(html_table_str)
+                if parser.tables:
+                    latex_table = table_to_latex(parser.tables[0])
+                    result = result.replace(html_table_str, latex_table, 1)
+            except Exception:
+                # If parsing fails for this specific table, skip it
+                pass
 
     # Try to find and convert markdown tables
     lines = result.split("\n")
