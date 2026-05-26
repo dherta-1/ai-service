@@ -1,0 +1,1 @@
+docker build -t dherta-backend:latest -f Dockerfile.gpu .

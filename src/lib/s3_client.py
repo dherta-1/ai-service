@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from typing import Optional, Dict, Any
 
@@ -20,6 +21,7 @@ class S3Client:
         region_name: Optional[str] = None,
         endpoint_url: Optional[str] = None,
         config: Optional[Config] = None,
+        public_url: Optional[str] = None,
     ):
         self.session = boto3.session.Session(
             aws_access_key_id=aws_access_key_id,
@@ -33,6 +35,7 @@ class S3Client:
             endpoint_url=endpoint_url,
             config=config or Config(signature_version="s3v4"),
         )
+        self.public_url = public_url
 
     def upload_file(
         self,
@@ -108,7 +111,18 @@ class S3Client:
         Params: Dict[str, Any],
         ExpiresIn: int = 3600,
     ) -> str:
-        """Generate a presigned URL for S3 object access."""
+        """Generate a presigned URL for S3 object access.
+
+        If public_url is configured, uses it as the base URL instead of the endpoint.
+        This is useful for Docker Compose setups where MinIO is behind a public URL.
+        """
+        if self.public_url:
+            key = Params.get("Key", "")
+            bucket = Params.get("Bucket", "")
+            url = f"{self.public_url}/{bucket}/{key}"
+            logger.info("Generated public S3 URL for %s", key)
+            return url
+
         try:
             url = self.client.generate_presigned_url(
                 client_method,
@@ -121,8 +135,8 @@ class S3Client:
             logger.error("Failed to generate presigned URL: %s", e)
             raise
 
-    def ensure_bucket(self, bucket: str, region_name: Optional[str] = None) -> None:
-        """Ensure S3 bucket exists; create if missing."""
+    def ensure_bucket(self, bucket: str, region_name: Optional[str] = None, public: bool = False) -> None:
+        """Ensure S3 bucket exists; create if missing. Sets public-read policy when public=True or public_url is configured."""
         try:
             self.client.head_bucket(Bucket=bucket)
         except ClientError as e:
@@ -138,6 +152,25 @@ class S3Client:
             else:
                 logger.error("Bucket check failed for %s: %s", bucket, e)
                 raise
+
+        if public or self.public_url:
+            self._set_public_read_policy(bucket)
+
+    def _set_public_read_policy(self, bucket: str) -> None:
+        policy = json.dumps({
+            "Version": "2012-10-17",
+            "Statement": [{
+                "Effect": "Allow",
+                "Principal": {"AWS": ["*"]},
+                "Action": ["s3:GetObject"],
+                "Resource": [f"arn:aws:s3:::{bucket}/*"],
+            }],
+        })
+        try:
+            self.client.put_bucket_policy(Bucket=bucket, Policy=policy)
+            logger.info("Set public-read policy on bucket: %s", bucket)
+        except (BotoCoreError, ClientError) as e:
+            logger.warning("Could not set public policy on bucket %s: %s", bucket, e)
 
 
 def get_s3_client(settings=None) -> S3Client:
@@ -157,6 +190,9 @@ def get_s3_client(settings=None) -> S3Client:
     endpoint_url = (
         settings.aws_s3_endpoint_url if settings else os.getenv("AWS_S3_ENDPOINT_URL")
     )
+    public_url = (
+        settings.aws_s3_public_url if settings else os.getenv("AWS_S3_PUBLIC_URL")
+    )
 
     return S3Client(
         aws_access_key_id=aws_access_key_id,
@@ -164,4 +200,5 @@ def get_s3_client(settings=None) -> S3Client:
         aws_session_token=aws_session_token,
         region_name=region_name,
         endpoint_url=endpoint_url,
+        public_url=public_url,
     )

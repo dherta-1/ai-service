@@ -94,12 +94,14 @@ A production-ready FastAPI template with Dependency Injection, Redis caching, Pe
 ### Local Setup
 
 1. **Clone the repository**
+
    ```bash
    git clone <repository-url>
    cd fastapi-minimal-template
    ```
 
 2. **Create virtual environment**
+
    ```bash
    python -m venv venv
    source venv/Scripts/activate  # On Windows
@@ -108,6 +110,7 @@ A production-ready FastAPI template with Dependency Injection, Redis caching, Pe
    ```
 
 3. **Install dependencies**
+
    ```bash
    pip install -e .
    # For development:
@@ -115,11 +118,13 @@ A production-ready FastAPI template with Dependency Injection, Redis caching, Pe
    ```
 
 4. **Create .env file**
+
    ```bash
    cp .env.example .env
    ```
 
 5. **Run the application**
+
    ```bash
    python main.py
    ```
@@ -134,16 +139,19 @@ The API will be available at `http://localhost:8000`
 ### Docker Setup
 
 1. **Build and start services**
+
    ```bash
    docker-compose up -d
    ```
 
 2. **View logs**
+
    ```bash
    docker-compose logs -f api
    ```
 
 3. **Stop services**
+
    ```bash
    docker-compose down
    ```
@@ -367,6 +375,7 @@ print(settings.database_url)
 ```
 
 Available settings:
+
 - `APP_NAME`: Application name
 - `DEBUG`: Debug mode
 - `HOST`: Server host
@@ -385,7 +394,6 @@ Available settings:
 - `GET /api/system/projects/{project_id}` - Get project
 - `PUT /api/system/projects/{project_id}` - Update project
 - `DELETE /api/system/projects/{project_id}` - Delete project
-
 - `GET /health` - Health check
 - `GET /` - Welcome endpoint
 
@@ -557,9 +565,16 @@ RUN_SEEDS=true
 
 ## Troubleshooting
 
+### Paddlepaddle gpu issue:
+
+[WinError 127] The specified procedure could not be found. Error loading "\ai-service\.venv\Lib\site-packages\paddle\..\nvidia\cudnn\bin\cudnn_cnn64_9.dll" or one of its dependencies.
+
+=> https://github.com/PaddlePaddle/PaddleOCR/issues/16342
+
 ### Database Connection Error
 
 Ensure `DATABASE_URL` is set correctly:
+
 ```bash
 # For SQLite (default)
 DATABASE_URL=sqlite:///./db.sqlite
@@ -571,6 +586,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 ### Redis Connection Error
 
 Ensure Redis is running:
+
 ```bash
 redis-cli ping  # Should return PONG
 ```
@@ -578,6 +594,7 @@ redis-cli ping  # Should return PONG
 ### Kafka Connection Error
 
 Ensure Kafka is running and accessible:
+
 ```bash
 docker-compose logs kafka
 ```

@@ -10,6 +10,7 @@ import argparse
 import logging
 import os
 import sys
+import subprocess
 
 logging.basicConfig(
     level=logging.INFO,
@@ -19,23 +20,35 @@ logger = logging.getLogger(__name__)
 
 
 def setup_playwright() -> bool:
-    """Download and setup Playwright chromium."""
+    """Download and setup Playwright chromium via CLI."""
     logger.info("Setting up Playwright chromium...")
+    browsers_path = os.environ.get("PLAYWRIGHT_BROWSERS_PATH")
+    if browsers_path:
+        logger.info("Playwright browsers path: %s", browsers_path)
     try:
-        from playwright.sync_api import sync_playwright
-
-        with sync_playwright() as p:
-            logger.info("Downloading Playwright chromium...")
-            browser = p.chromium.launch()
-            browser.close()
+        logger.info("Downloading Playwright chromium...")
+        # Pass full env including PLAYWRIGHT_BROWSERS_PATH so browser lands in the volume
+        result = subprocess.run(
+            ["playwright", "install", "chromium", "--with-deps"],
+            text=True,
+            timeout=600,
+            env=os.environ.copy(),
+        )
+        if result.returncode == 0:
             logger.info("✓ Playwright chromium setup complete")
             return True
+        else:
+            logger.error("✗ Playwright install failed (exit %d)", result.returncode)
+            return False
+    except FileNotFoundError:
+        logger.error("✗ playwright CLI not found. Install with: pip install playwright")
+        return False
     except Exception as e:
         logger.error(f"✗ Failed to setup Playwright: {e}")
         return False
 
 
-def setup_ppstructure(lang: str = "en", use_gpu: bool = False) -> bool:
+def setup_ppstructure(lang: str = "vi", use_gpu: bool = False) -> bool:
     """Download and setup PPStructureV3 models.
 
     Args:
@@ -47,8 +60,11 @@ def setup_ppstructure(lang: str = "en", use_gpu: bool = False) -> bool:
     """
     logger.info(f"Setting up PPStructureV3 models (lang={lang}, gpu={use_gpu})...")
 
-    # Disable model source checks to avoid network issues
-    os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+    paddle_home = os.environ.get("PADDLE_PDX_CACHE_HOME")
+    if paddle_home:
+        logger.info("Paddle model cache home: %s", paddle_home)
+    os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
+    os.environ["DISABLE_MODEL_SOURCE_CHECK"] = "True"
 
     try:
         from paddleocr import PPStructureV3
@@ -56,7 +72,6 @@ def setup_ppstructure(lang: str = "en", use_gpu: bool = False) -> bool:
         device = "gpu" if use_gpu else "cpu"
         logger.info(f"Initializing PPStructureV3 (device={device}, lang={lang})...")
 
-        # Initialize the engine which triggers model downloads
         PPStructureV3(
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,
@@ -69,13 +84,12 @@ def setup_ppstructure(lang: str = "en", use_gpu: bool = False) -> bool:
         logger.info(f"✓ PPStructureV3 models setup complete ({lang}, {device})")
         return True
 
-    except ImportError:
-        logger.error(
-            "✗ paddleocr not installed. Install with: pip install paddleocr[all]"
-        )
+    except ImportError as e:
+        logger.error(f"✗ paddleocr import failed: {e}")
+        logger.error("Install with: pip install paddleocr[all]")
         return False
     except Exception as e:
-        logger.error(f"✗ Failed to setup PPStructureV3: {e}")
+        logger.error(f"✗ Failed to setup PPStructureV3 ({lang}, {device}): {e}")
         return False
 
 
@@ -154,8 +168,8 @@ def main():
     parser.add_argument(
         "--gpu",
         action="store_true",
-        default=False,
-        help="Use GPU for PPStructureV3 (default: False)",
+        default=os.getenv("OCR_USE_GPU", "false").lower() == "true",
+        help="Use GPU for PPStructureV3 (default: False, or from OCR_USE_GPU env)",
     )
 
     parser.add_argument(

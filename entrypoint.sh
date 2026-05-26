@@ -15,7 +15,11 @@ case "${MODE}" in
     ;;
   setup)
     echo "Running setup tasks..."
-    exec python scripts/setup.py
+    SETUP_ARGS=""
+    if [ "${OCR_USE_GPU}" = "true" ]; then
+      SETUP_ARGS="--gpu"
+    fi
+    exec python scripts/setup.py $SETUP_ARGS
     ;;
   document-worker)
     echo "Starting document worker mode..."

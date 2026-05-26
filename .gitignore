@@ -16,3 +16,5 @@ huggingface
 tmp
 .claude
 debug
+.env*
+!.env.example

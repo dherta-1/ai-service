@@ -35,7 +35,8 @@ class Settings(BaseSettings):
     aws_region: Optional[str] = Field(default=None, env="AWS_REGION")
     aws_s3_endpoint_url: Optional[str] = Field(default=None, env="AWS_S3_ENDPOINT_URL")
     aws_s3_bucket: Optional[str] = Field(default=None, env="AWS_S3_BUCKET")
-
+    aws_s3_public_url: Optional[str] = Field(default=None, env="AWS_S3_PUBLIC_URL")
+    
     # LLM
     llm_provider: str = Field(default="gemini", env="LLM_PROVIDER")
     llm_model: str = Field(default="gemini-2.5-flash", env="LLM_MODEL")

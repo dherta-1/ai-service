@@ -1,49 +1,74 @@
-# GPU Dockerfile — PaddlePaddle GPU handles CUDA deps
-# Build: docker build -f Dockerfile.gpu -t ai-service:gpu .
-# Run:   docker run --gpus all ai-service:gpu
-# Requires: NVIDIA Docker runtime and host CUDA drivers
+# GPU Dockerfile — NVIDIA CUDA + PaddlePaddle GPU
+# Build: docker build -f Dockerfile.gpu -t dherta-backend:latest .
+# Run:   docker-compose -f docker/docker-compose.yml --profile setup up setup
+# Requires: NVIDIA Docker runtime and host CUDA drivers (12.6+)
+# Note: Models and browsers are downloaded via setup service with OCR_USE_GPU env
 
-FROM python:3.12-slim-bookworm
+FROM nvidia/cuda:12.6.3-cudnn-devel-ubuntu24.04
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    python3-pip \
     libgl1 \
     libglib2.0-0 \
     libsm6 \
     libxext6 \
     libxrender1 \
     libgomp1 \
-    libgcc-s1 \
     wget \
     curl \
     ca-certificates \
     git \
+    libnspr4 \
+    libnss3 \
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libcups2 \
+    libdrm2 \
+    libxkbcommon0 \
+    libxcomposite1 \
+    libxdamage1 \
+    libxfixes3 \
+    libxrandr2 \
+    libgbm1 \
+    libasound2t64 \
     && rm -rf /var/lib/apt/lists/*
+
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# PaddlePaddle GPU wheel includes CUDA libs and cudnn
-RUN pip install --no-cache-dir paddlepaddle-gpu==3.3.1 \
-    -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 COPY pyproject.toml ./
 RUN pip install --no-cache-dir -e .
 
-RUN pip install --no-cache-dir playwright && \
-    playwright install chromium
+# Playwright will be installed on demand via setup service
+RUN pip install --no-cache-dir playwright
+
+# PaddlePaddle GPU wheel includes CUDA libs and cudnn (install after dependencies)
+RUN pip install --no-cache-dir paddlepaddle-gpu==3.3.1 \
+    -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
 
 COPY . .
+RUN chmod +x /app/entrypoint.sh
 
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
-ENV PADDLEOCR_MODEL_PATH=/root/.paddlex/official_models
-ENV DISABLE_MODEL_SOURCE_CHECK=True
+# PaddleX uses PADDLE_PDX_CACHE_HOME as its model cache root (see paddlex/utils/cache.py)
+ENV PADDLE_PDX_CACHE_HOME=/models/paddle
+ENV PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True
+# Playwright browser cache directory
+ENV PLAYWRIGHT_BROWSERS_PATH=/models/browsers
 
-RUN mkdir -p /root/.paddlex/official_models
-
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
+# Create mounted model directories (will be populated by setup service)
+RUN mkdir -p /models/paddle /models/browsers
 
 EXPOSE 8000
 

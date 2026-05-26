@@ -23,8 +23,7 @@ dependencies = [
     "pillow>=12.1.1",
     "pymupdf>=1.27.2.2",
     "boto3>=1.42.77",
-    "paddleocr[all]>=3.2.0",
-    "ultralytics>=8.3.0",
+    "paddleocr[all]==3.4.0",
     "pgvector>=0.4.2",
     "passlib[bcrypt]>=1.7.4",
     "python-jose[cryptography]>=3.3.0",
@@ -48,10 +47,10 @@ gpu = [
     "torch>=2.5.0",
     "torchvision>=0.20.0",
     "torchaudio>=2.5.0",
-    "paddlepaddle-gpu>=3.2.0",
+    "paddlepaddle-gpu==3.3.1",
 ]
 
-cpu = ["paddlepaddle>=3.2.0"]
+cpu = ["paddlepaddle==3.3.1"]
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

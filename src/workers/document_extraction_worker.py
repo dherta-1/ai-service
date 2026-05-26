@@ -114,6 +114,7 @@ def setup_document_extraction_worker_environment() -> None:
         container.register_singleton("ocr_client", ocr_client)
     except Exception as e:
         logger.warning("Could not create OCR client at startup: %s", e)
+        container.register_singleton("ocr_client", None)
 
     kafka_producer = KafkaProducerImpl(topic="question_extraction_requested")
     container.register_singleton("kafka_producer", kafka_producer)

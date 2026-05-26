@@ -36,7 +36,9 @@ class PPStructureOCRClient(BaseOCRClient):
 
     def _create_engine(self):
         # Avoid network source checks every startup; model files are cached locally.
+        # PADDLE_PDX_HOME controls where models are stored/loaded from (mounted volume).
         os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
+        os.environ.setdefault("DISABLE_MODEL_SOURCE_CHECK", "True")
 
         try:
             from paddleocr import PPStructureV3
