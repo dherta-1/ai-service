@@ -287,7 +287,7 @@ class BaseExamGenerationService:
         # Apply cosine search ranking if custom_text provided
         if section.custom_text and self._llm_client:
             query_vec = self._embed_custom_text(section.custom_text)
-            if query_vec:
+            if query_vec is not None:
                 # Rank questions by cosine similarity to custom_text
                 questions = self._rank_questions_by_similarity(questions, query_vec)
                 # Take top 5*top_k to avoid full-scan, then sample from this pool
@@ -391,7 +391,7 @@ class BaseExamGenerationService:
         # If custom_text: vector-rank via cosine (no threshold — just sort)
         if section.custom_text and self._llm_client:
             query_vec = self._embed_custom_text(section.custom_text)
-            if query_vec:
+            if query_vec is not None:
                 candidates = self._group_repo.cosine_search(
                     candidates, query_vec, threshold=0.0
                 )
@@ -406,7 +406,9 @@ class BaseExamGenerationService:
             return None
         try:
             embeddings = self._llm_client.embed(text)
-            return embeddings[0] if embeddings else None
+            if embeddings and len(embeddings) > 0:
+                return embeddings[0]
+            return None
         except Exception as exc:
             logger.warning("Failed to embed custom_text: %s", exc)
             return None
@@ -425,10 +427,10 @@ class BaseExamGenerationService:
         q_vec = np.array(query_vec, dtype=float)
 
         for q in questions:
-            if not q.embedding:
+            if q.vector_embedding is None:
                 continue
             try:
-                g_vec = np.array(q.embedding, dtype=float)
+                g_vec = np.array(q.vector_embedding, dtype=float)
                 cosine_sim = float(
                     np.dot(g_vec, q_vec) / (np.linalg.norm(g_vec) * np.linalg.norm(q_vec))
                 )

@@ -13,7 +13,7 @@ def diversity_penalty(
 
     Returns 0.0 when nothing is selected yet or embeddings are missing.
     """
-    if not selected_embeddings or group_embedding is None:
+    if not selected_embeddings or group_embedding is None or (hasattr(group_embedding, '__len__') and len(group_embedding) == 0):
         return 0.0
 
     sims = []
