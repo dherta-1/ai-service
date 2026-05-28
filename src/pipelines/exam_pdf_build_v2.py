@@ -8,12 +8,12 @@ Jinja2 + KaTeX + Playwright approach:
 """
 from __future__ import annotations
 
-import base64
 import logging
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
+import base64
 import requests
 from jinja2 import Environment, FileSystemLoader, StrictUndefined
 
@@ -202,6 +202,7 @@ class ExamPdfBuildPipelineV2(BasePipeline[ExamPdfBuildInput, bytes]):
         sections = _prepare_sections(exam_data.get("sections", []), payload.presigned_urls)
         total_questions = sum(len(s["questions"]) for s in sections)
 
+        logger.info("ExamPdfBuildV2: sections=%d total_questions=%d", len(sections), total_questions)
         html_str = self._template.render(
             school_name=exam_data.get("school_name") or payload.school_name,
             subject_label=payload.subject_label,

@@ -223,6 +223,37 @@ services:
     networks:
       - app-network
 
+  frontend:
+    image: dherta-frontend:latest
+    container_name: dherta-frontend
+    environment:
+      NODE_ENV: production
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: dherta-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - dherta_dep_caddy_data:/data
+      - dherta_dep_caddy_config:/config
+    environment:
+      DOMAIN: ${DOMAIN:-localhost}
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
   setup:
     image: dherta-backend:latest
     container_name: ai-service-setup
@@ -257,6 +288,8 @@ volumes:
   dherta_dep_minio_data:
   dherta_dep_models_paddle:
   dherta_dep_models_browsers:
+  dherta_dep_caddy_data:
+  dherta_dep_caddy_config:
 
 networks:
   app-network:

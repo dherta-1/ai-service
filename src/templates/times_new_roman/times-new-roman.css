@@ -1,0 +1,27 @@
+@font-face {
+  font-family: "Times New Roman";
+  font-weight: normal;
+  font-style: normal;
+  src: url("fonts/TimesNewRoman.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Times New Roman";
+  font-weight: bold;
+  font-style: normal;
+  src: url("fonts/TimesNewRomanBold.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Times New Roman";
+  font-weight: normal;
+  font-style: italic;
+  src: url("fonts/TimesNewRomanItalic.ttf") format("truetype");
+}
+
+@font-face {
+  font-family: "Times New Roman";
+  font-weight: bold;
+  font-style: italic;
+  src: url("fonts/TimesNewRomanBoldItalic.ttf") format("truetype");
+}

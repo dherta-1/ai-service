@@ -29,7 +29,7 @@ def setup_playwright() -> bool:
         logger.info("Downloading Playwright chromium...")
         # Pass full env including PLAYWRIGHT_BROWSERS_PATH so browser lands in the volume
         result = subprocess.run(
-            ["playwright", "install", "chromium", "--with-deps"],
+            ["playwright", "install", "--with-deps"],
             text=True,
             timeout=600,
             env=os.environ.copy(),
