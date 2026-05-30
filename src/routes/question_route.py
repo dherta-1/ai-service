@@ -41,6 +41,7 @@ async def list_questions(
     difficulty: Optional[str] = Query(None),
     question_type: Optional[str] = Query(None),
     status: Optional[int] = Query(None),
+    time_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     service: QuestionService = Depends(get_question_service),
@@ -54,6 +55,7 @@ async def list_questions(
     - difficulty: Filter by difficulty level
     - question_type: Filter by question type (multiple_choice, true_false, etc.)
     - status: Filter by status (0=pending, 1=approved, 2=rejected)
+    - time_order: Sort by created_at (asc|desc, default desc)
     """
     questions, total = service.find_filtered(
         search_query=search,
@@ -62,6 +64,7 @@ async def list_questions(
         difficulty=difficulty,
         question_type=question_type,
         status=status,
+        time_order=time_order or "desc",
         page=page,
         page_size=page_size,
     )
@@ -92,6 +95,7 @@ async def list_my_questions(
     difficulty: Optional[str] = Query(None),
     question_type: Optional[str] = Query(None),
     status: Optional[int] = Query(None),
+    time_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -106,6 +110,7 @@ async def list_my_questions(
         difficulty=difficulty,
         question_type=question_type,
         status=status,
+        time_order=time_order or "desc",
         page=page,
         page_size=page_size,
     )

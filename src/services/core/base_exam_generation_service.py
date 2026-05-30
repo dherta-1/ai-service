@@ -34,7 +34,6 @@ from src.shared.helpers.exam_generation_helpers import (
     generate_exam_code,
     increment_exam_counts,
 )
-from src.shared.constants.question import QuestionStatus
 
 logger = logging.getLogger(__name__)
 
@@ -226,38 +225,20 @@ class BaseExamGenerationService:
         Weight is inversely proportional to variant_existence_count.
         """
         topics = section.topic if isinstance(section.topic, list) else [section.topic]
+        types_to_match = (
+            section.question_type
+            if isinstance(section.question_type, list)
+            else [section.question_type]
+        ) if section.question_type else None
 
-        # Get all eligible questions matching criteria
-        questions = list(
-            Question.select().where(
-                (Question.subject == section.subject)
-                & (Question.topic.in_(topics))
-                & (Question.difficulty == section.difficulty)
-                & (Question.parent_question.is_null())
-                & (Question.status == QuestionStatus.APPROVED.value)
-            )
+        # Get all eligible questions with difficulty fallback
+        questions = self._question_repo.get_by_criteria_with_fallback(
+            subject=section.subject,
+            topics=topics,
+            difficulty=section.difficulty,
+            fallback_difficulties=_DIFFICULTY_FALLBACKS.get(section.difficulty),
+            question_types=types_to_match,
         )
-
-        if not questions:
-            # Try difficulty fallback
-            for fallback_diff in _DIFFICULTY_FALLBACKS.get(section.difficulty, []):
-                questions = list(
-                    Question.select().where(
-                        (Question.subject == section.subject)
-                        & (Question.topic.in_(topics))
-                        & (Question.difficulty == fallback_diff)
-                        & (Question.parent_question.is_null())
-                        & (Question.status == QuestionStatus.APPROVED.value)
-                    )
-                )
-                if questions:
-                    logger.info(
-                        "Fell back to difficulty '%s' for section '%s' (found %d questions)",
-                        fallback_diff,
-                        section.name,
-                        len(questions),
-                    )
-                    break
 
         if not questions:
             logger.warning(
@@ -268,21 +249,6 @@ class BaseExamGenerationService:
                 section.difficulty,
             )
             return []
-
-        # Filter by question_type if specified
-        if section.question_type:
-            types_to_match = (
-                section.question_type
-                if isinstance(section.question_type, list)
-                else [section.question_type]
-            )
-            questions = [q for q in questions if q.question_type in types_to_match]
-            if not questions:
-                logger.warning(
-                    "No questions found after question_type filtering for section '%s'",
-                    section.name,
-                )
-                return []
 
         # Apply cosine search ranking if custom_text provided
         if section.custom_text and self._llm_client:
@@ -448,23 +414,13 @@ class BaseExamGenerationService:
         question_type: Optional[str | list[str]] = None,
         rng: random.Random = None,
     ) -> Optional[Question]:
-        variants = list(
-            Question.select().where(
-                (Question.questions_group == group.id)
-                & (Question.parent_question.is_null())
-                & (Question.status == QuestionStatus.APPROVED.value)
-            )
-        )
+        types_to_match = (
+            question_type if isinstance(question_type, list) else [question_type]
+        ) if question_type else None
+
+        variants = self._question_repo.get_variants_by_group(group.id, types_to_match)
         if not variants:
             return None
-
-        if question_type:
-            types_to_match = (
-                question_type if isinstance(question_type, list) else [question_type]
-            )
-            variants = [v for v in variants if v.question_type in types_to_match]
-            if not variants:
-                return None
 
         weights = [1.0 / (v.variant_existence_count + 1) for v in variants]
         total = sum(weights)
@@ -486,23 +442,13 @@ class BaseExamGenerationService:
         if count <= 0:
             return []
 
-        variants = list(
-            Question.select().where(
-                (Question.questions_group == group.id)
-                & (Question.parent_question.is_null())
-                & (Question.status == QuestionStatus.APPROVED.value)
-            )
-        )
+        types_to_match = (
+            question_type if isinstance(question_type, list) else [question_type]
+        ) if question_type else None
+
+        variants = self._question_repo.get_variants_by_group(group.id, types_to_match)
         if not variants:
             return []
-
-        if question_type:
-            types_to_match = (
-                question_type if isinstance(question_type, list) else [question_type]
-            )
-            variants = [v for v in variants if v.question_type in types_to_match]
-            if not variants:
-                return []
 
         selected = []
         pool = list(variants)

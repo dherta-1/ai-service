@@ -73,6 +73,7 @@ class QuestionRepository(BaseRepo[Question]):
         difficulty: Optional[str] = None,
         question_type: Optional[str] = None,
         status: Optional[int] = None,
+        time_order: str = "desc",
         offset: int = 0,
         limit: int = 20,
     ) -> List[Question]:
@@ -89,6 +90,10 @@ class QuestionRepository(BaseRepo[Question]):
             query = query.where(Question.question_type == question_type)
         if status is not None:
             query = query.where(Question.status == status)
+        if time_order == "asc":
+            query = query.order_by(Question.created_at.asc())
+        else:
+            query = query.order_by(Question.created_at.desc())
         return list(query.offset(offset).limit(limit))
 
     def count_filtered(
@@ -124,6 +129,7 @@ class QuestionRepository(BaseRepo[Question]):
         difficulty: Optional[str] = None,
         question_type: Optional[str] = None,
         status: Optional[int] = None,
+        time_order: str = "desc",
         offset: int = 0,
         limit: int = 20,
     ) -> List[Question]:
@@ -149,6 +155,10 @@ class QuestionRepository(BaseRepo[Question]):
             query = query.where(Question.question_type == question_type)
         if status is not None:
             query = query.where(Question.status == status)
+        if time_order == "asc":
+            query = query.order_by(Question.created_at.asc())
+        else:
+            query = query.order_by(Question.created_at.desc())
         return list(query.offset(offset).limit(limit))
 
     def count_by_filters(
@@ -206,3 +216,69 @@ class QuestionRepository(BaseRepo[Question]):
         if status is not None:
             query = query.where(Question.status == status)
         return query.count()
+
+    def get_by_criteria(
+        self,
+        subject: str,
+        topics: List[str],
+        difficulty: str,
+        question_types: Optional[List[str]] = None,
+    ) -> List[Question]:
+        """Get questions matching subject, topics, and difficulty.
+
+        Excludes parent questions and only returns APPROVED questions.
+        Optionally filters by question_type.
+        """
+        query = Question.select().where(
+            (Question.subject == subject)
+            & (Question.topic.in_(topics))
+            & (Question.difficulty == difficulty)
+            & (Question.parent_question.is_null())
+            & (Question.status == QuestionStatus.APPROVED.value)
+        )
+        if question_types:
+            query = query.where(Question.question_type.in_(question_types))
+        return list(query)
+
+    def get_by_criteria_with_fallback(
+        self,
+        subject: str,
+        topics: List[str],
+        difficulty: str,
+        fallback_difficulties: Optional[List[str]] = None,
+        question_types: Optional[List[str]] = None,
+    ) -> List[Question]:
+        """Get questions with difficulty fallback.
+
+        First tries to match exact difficulty. If no results, tries fallback difficulties
+        in order until questions are found.
+        """
+        questions = self.get_by_criteria(subject, topics, difficulty, question_types)
+
+        if not questions and fallback_difficulties:
+            for fallback_diff in fallback_difficulties:
+                questions = self.get_by_criteria(
+                    subject, topics, fallback_diff, question_types
+                )
+                if questions:
+                    break
+
+        return questions
+
+    def get_variants_by_group(
+        self,
+        group_id: UUID,
+        question_types: Optional[List[str]] = None,
+    ) -> List[Question]:
+        """Get all variants (non-parent questions) from a group.
+
+        Optionally filters by question_type.
+        """
+        query = Question.select().where(
+            (Question.questions_group == group_id)
+            & (Question.parent_question.is_null())
+            & (Question.status == QuestionStatus.APPROVED.value)
+        )
+        if question_types:
+            query = query.where(Question.question_type.in_(question_types))
+        return list(query)

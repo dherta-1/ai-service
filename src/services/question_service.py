@@ -57,6 +57,7 @@ class QuestionService(BaseService):
         difficulty: Optional[str] = None,
         question_type: Optional[str] = None,
         status: Optional[int] = None,
+        time_order: str = "desc",
         page: int = 1,
         page_size: int = 20,
     ):
@@ -68,6 +69,7 @@ class QuestionService(BaseService):
             difficulty=difficulty,
             question_type=question_type,
             status=status,
+            time_order=time_order,
             offset=offset,
             limit=page_size,
         )
@@ -90,6 +92,7 @@ class QuestionService(BaseService):
         difficulty: Optional[str] = None,
         question_type: Optional[str] = None,
         status: Optional[int] = None,
+        time_order: str = "desc",
         page: int = 1,
         page_size: int = 20,
     ):
@@ -102,6 +105,7 @@ class QuestionService(BaseService):
             difficulty=difficulty,
             question_type=question_type,
             status=status,
+            time_order=time_order,
             offset=offset,
             limit=page_size,
         )
