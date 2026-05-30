@@ -7,7 +7,11 @@ from src.shared.response.exception_handler import NotFoundException, BadRequestE
 from src.services.question_service import QuestionService
 from src.services.core.question_mutation_service import QuestionMutationService
 from src.dtos.question.req import CreateQuestionRequest, UpdateQuestionRequest
-from src.dtos.question.res import QuestionListResponse, QuestionDetailResponse, QuestionGroupResponse
+from src.dtos.question.res import (
+    QuestionListResponse,
+    QuestionDetailResponse,
+    QuestionGroupResponse,
+)
 from src.shared.helpers.dto_utils import to_dict
 from src.shared.response.response_models import (
     create_response,
@@ -41,7 +45,7 @@ async def list_questions(
     difficulty: Optional[str] = Query(None),
     question_type: Optional[str] = Query(None),
     status: Optional[int] = Query(None),
-    time_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
+    time_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     service: QuestionService = Depends(get_question_service),
@@ -95,7 +99,7 @@ async def list_my_questions(
     difficulty: Optional[str] = Query(None),
     question_type: Optional[str] = Query(None),
     status: Optional[int] = Query(None),
-    time_order: Optional[str] = Query("desc", regex="^(asc|desc)$"),
+    time_order: Optional[str] = Query("desc", pattern="^(asc|desc)$"),
     page: int = Query(1, ge=1),
     page_size: int = Query(10, ge=1, le=100),
     current_user: User = Depends(get_current_user),
@@ -261,8 +265,10 @@ async def get_question_stats(
     - difficulty: Difficulty level
     - question_types: Comma-separated question types (e.g., "multiple_choice,true_false")
     """
-    topics_list = [t.strip() for t in topics.split(',')] if topics else []
-    question_types_list = [qt.strip() for qt in question_types.split(',')] if question_types else []
+    topics_list = [t.strip() for t in topics.split(",")] if topics else []
+    question_types_list = (
+        [qt.strip() for qt in question_types.split(",")] if question_types else []
+    )
 
     stats = service.get_stats(
         subject=subject,
@@ -347,7 +353,9 @@ async def submit_question_review(
             action_type=ActionType.UPDATE,
             actor_id=None,
             entity_id=question_id,
-            before_data={"answers": [to_dict(a) for a in old_answers] if old_answers else None},
+            before_data={
+                "answers": [to_dict(a) for a in old_answers] if old_answers else None
+            },
             after_data={"answers": answers},
             request_ip=request.client.host if request else None,
         )
@@ -361,6 +369,7 @@ async def submit_question_review(
 # ------------------------------------------------------------------
 # Question Mutation
 # ------------------------------------------------------------------
+
 
 @router.post("/batch/create")
 async def batch_create_questions(
@@ -403,10 +412,7 @@ async def batch_create_questions(
             data = QuestionDetailResponse.model_validate(question).model_dump()
             created_questions.append(data)
         except Exception as e:
-            failed_questions.append({
-                "index": idx,
-                "error": str(e)
-            })
+            failed_questions.append({"index": idx, "error": str(e)})
 
     if len(created_questions) > 0:
         log_audit(
@@ -449,7 +455,10 @@ async def create_question(
             actor_id=None,
             entity_id=question.id,
             before_data=None,
-            after_data={"question_text": question.question_text, "question_type": question.question_type},
+            after_data={
+                "question_text": question.question_text,
+                "question_type": question.question_type,
+            },
             request_ip=request.client.host if request else None,
         )
 
@@ -481,7 +490,9 @@ async def update_question(
             action_type=ActionType.UPDATE,
             actor_id=None,
             entity_id=question_id,
-            before_data={"question_text": old_question.question_text if old_question else None},
+            before_data={
+                "question_text": old_question.question_text if old_question else None
+            },
             after_data={"question_text": question.question_text},
             request_ip=request.client.host if request else None,
         )

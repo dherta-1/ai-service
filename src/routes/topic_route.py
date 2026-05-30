@@ -68,3 +68,34 @@ async def get_all_topics(
         message="All topics retrieved successfully",
     )
     return response.model_dump(mode="json")
+
+
+@router.post("/batch/codes", response_model=dict, status_code=status.HTTP_200_OK)
+async def get_topics_by_codes(
+    codes: list[str],
+    service: TopicService = Depends(get_topic_service),
+):
+    """Get multiple topics by their codes"""
+    topics = [service.get_by_code(code) for code in codes]
+    topics = [t for t in topics if t is not None]
+    response = create_response(
+        data=[t.model_dump() for t in topics],
+        message="Topics retrieved successfully",
+    )
+    return response.model_dump(mode="json")
+
+
+@router.get("/{code}", response_model=dict, status_code=status.HTTP_200_OK)
+async def get_topic_by_code(
+    code: str,
+    service: TopicService = Depends(get_topic_service),
+):
+    """Get a topic by its code"""
+    topic = service.get_by_code(code)
+    if not topic:
+        return create_response(data=None, message="Topic not found").model_dump(mode="json")
+    response = create_response(
+        data=topic.model_dump(),
+        message="Topic retrieved successfully",
+    )
+    return response.model_dump(mode="json")
