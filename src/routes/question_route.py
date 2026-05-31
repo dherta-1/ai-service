@@ -6,7 +6,8 @@ from src.container import get_di_container
 from src.shared.response.exception_handler import NotFoundException, BadRequestException
 from src.services.question_service import QuestionService
 from src.services.core.question_mutation_service import QuestionMutationService
-from src.dtos.question.req import CreateQuestionRequest, UpdateQuestionRequest
+from src.services.core.generate_answer_service import GenerateAnswerService
+from src.dtos.question.req import CreateQuestionRequest, UpdateQuestionRequest, AcceptAnswerRequest
 from src.dtos.question.res import (
     QuestionListResponse,
     QuestionDetailResponse,
@@ -35,6 +36,10 @@ def get_question_service() -> QuestionService:
 
 def get_mutation_service() -> QuestionMutationService:
     return get_di_container().resolve(QuestionMutationService)
+
+
+def get_generate_answer_service() -> GenerateAnswerService:
+    return get_di_container().resolve(GenerateAnswerService)
 
 
 @router.get("")
@@ -506,6 +511,71 @@ async def update_question(
     except Exception as exc:
         logger.exception(f"Error updating question {question_id}: {exc}")
         raise BadRequestException(f"Error updating question: {str(exc)}")
+
+
+@router.post("/{question_id}/generate-answer")
+async def generate_answer(
+    question_id: UUID,
+    language: Optional[str] = Query("en"),
+    service: GenerateAnswerService = Depends(get_generate_answer_service),
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+):
+    """Generate an AI answer for a question (not persisted)."""
+    try:
+        result = await service.generate_answer(question_id, language=language or "en")
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.GENERATE,
+            actor_id=current_user.id,
+            entity_id=question_id,
+            before_data=None,
+            after_data={"question_id": str(question_id)},
+            request_ip=request.client.host if request else None,
+        )
+
+        return create_response(data=result, message="Answer generated successfully")
+    except ValueError as exc:
+        raise NotFoundException(str(exc))
+    except Exception as exc:
+        logger.exception("Error generating answer for question %s", question_id)
+        raise BadRequestException(f"Failed to generate answer: {str(exc)}")
+
+
+@router.post("/{question_id}/accept-answer")
+async def accept_answer(
+    question_id: UUID,
+    body: AcceptAnswerRequest,
+    service: GenerateAnswerService = Depends(get_generate_answer_service),
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+):
+    """Persist a generated answer accepted by the user."""
+    try:
+        await service.accept_answer(question_id, body.model_dump())
+
+        log_audit(
+            actor_type=ActorType.user,
+            entity_type=EntityType.question,
+            action_type=ActionType.UPDATE,
+            actor_id=current_user.id,
+            entity_id=question_id,
+            before_data=None,
+            after_data={"accepted_answer": True},
+            request_ip=request.client.host if request else None,
+        )
+
+        return create_response(
+            data={"id": str(question_id), "accepted": True},
+            message="Answer accepted and saved",
+        )
+    except ValueError as exc:
+        raise NotFoundException(str(exc))
+    except Exception as exc:
+        logger.exception("Error accepting answer for question %s", question_id)
+        raise BadRequestException(f"Failed to accept answer: {str(exc)}")
 
 
 @router.delete("/{question_id}")

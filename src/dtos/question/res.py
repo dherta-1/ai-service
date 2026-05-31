@@ -92,6 +92,15 @@ class QuestionGroupResponse(BaseModel):
         from_attributes = True
 
 
+class GeneratedAnswerResponse(BaseModel):
+    """Structured answer from LLM, not yet persisted."""
+    question_id: UUID
+    generated: dict
+
+    class Config:
+        from_attributes = True
+
+
 class TaskProgressResponse(BaseModel):
     id: UUID
     name: Optional[str] = None

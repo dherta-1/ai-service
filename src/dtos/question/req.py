@@ -39,3 +39,8 @@ class UpdateQuestionRequest(BaseModel):
     sub_questions: Optional[List[SubQuestionInput]] = None
     image_list: Optional[List[str]] = None
     reassign_group: bool = True
+
+
+class AcceptAnswerRequest(BaseModel):
+    """User-accepted (possibly edited) generated answer payload."""
+    answer: Optional[dict] = None
