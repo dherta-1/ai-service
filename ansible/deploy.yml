@@ -39,7 +39,8 @@
         - name: Add Docker GPG key
           shell: |
             curl -fsSL {{ docker_apt_key }} | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-          creates: /etc/apt/keyrings/docker.gpg
+          args:
+            creates: /etc/apt/keyrings/docker.gpg
 
         - name: Add Docker repository
           lineinfile:
@@ -218,10 +219,8 @@
     # ── Pull Images ──────────────────────────────────────────
     - name: Pull Docker images
       shell: |
-        cd {{ deployment_home }}/{{ project_name }}/docker
         docker pull {{ backend_image }}
         docker pull {{ frontend_image }}
-      become_user: "{{ deployment_user }}"
       tags: images
 
     # ── Run Setup Profile (Download models, browsers) ────────
