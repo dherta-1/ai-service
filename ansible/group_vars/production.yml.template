@@ -1,0 +1,76 @@
+# ── Docker & Deployment ──────────────────────────────────────
+docker_version: "24.0"
+docker_compose_version: "v2.20.0"
+deployment_user: deploy
+deployment_home: /home/deploy
+project_name: dherta-ai-service
+
+# ── Image Registry (GHCR - GitHub Container Registry) ────────
+# Pull pre-built images directly from GHCR, no git repo needed
+docker_registry: "ghcr.io"
+docker_username: ""
+docker_password: ""
+backend_image: "{{ docker_registry }}/dherta-backend:latest"
+frontend_image: "{{ docker_registry }}/dherta-frontend:latest"
+
+# ── Network & Domain ─────────────────────────────────────────
+domain: yourdomain.com
+caddy_email: admin@yourdomain.com
+
+# ── Database ──────────────────────────────────────────────────
+postgres_user: postgres
+postgres_password: "change-me-in-production"
+postgres_db: ai_service
+
+# ── Redis ─────────────────────────────────────────────────────
+redis_password: ""
+
+# ── MinIO S3 ──────────────────────────────────────────────────
+minio_root_user: minioadmin
+minio_root_password: "change-me-in-production"
+aws_region: ap-southeast-1
+aws_s3_bucket: ai-service-documents
+aws_s3_public_url: "https://{{ domain }}/storage"
+
+# ── LLM Configuration ─────────────────────────────────────────
+llm_provider: gemini
+llm_model: gemini-2.5-flash
+llm_embedding_model: gemini-embedding-001
+llm_embedding_dimension: 768
+llm_api_key: ""
+
+# ── OCR Configuration ────────────────────────────────────────
+ocr_provider: ppstructure
+ocr_lang: vi
+ocr_use_gpu: true
+
+# ── JWT ───────────────────────────────────────────────────────
+jwt_secret_key: "change-me-in-production"
+jwt_algorithm: HS256
+access_token_expire_minutes: 60
+refresh_token_expire_days: 7
+
+# ── SMTP ──────────────────────────────────────────────────────
+smtp_host: smtp.gmail.com
+smtp_port: 587
+smtp_username: ""
+smtp_password: ""
+smtp_from_email: "noreply@example.com"
+smtp_from_name: "Dherta AI Service"
+
+# ── CORS ──────────────────────────────────────────────────────
+cors_origins: "https://{{ domain }}"
+cors_allow_credentials: "true"
+cors_allow_methods: "GET,POST,PUT,DELETE,PATCH,OPTIONS"
+cors_allow_headers: "Authorization,Content-Type,Accept"
+
+# ── Application ───────────────────────────────────────────────
+debug: "false"
+log_results: "false"
+run_seeds: "false"
+question_grouping_threshold: "0.8"
+
+# ── Deployment Settings ──────────────────────────────────────
+enable_gpu: true
+paddle_model_cache: /models/paddle
+playwright_cache: /models/browsers

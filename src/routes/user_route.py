@@ -5,7 +5,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, status, Request
 
 from src.container import get_di_container
-from src.dtos.user.req import UpdateUserRequest
+from src.dtos.user.req import UpdateUserRequest, ResetPasswordRequest
 from src.dtos.user.res import UserResponse
 from src.entities.user import User
 from src.services.user_service import UserService
@@ -88,6 +88,37 @@ async def update_user(
     return create_response(
         data=UserResponse.model_validate(user).model_dump(),
         message="User updated successfully",
+    )
+
+
+@router.post("/{user_id}/reset-password", dependencies=[Depends(require_admin)])
+async def reset_user_password(
+    user_id: UUID,
+    body: ResetPasswordRequest,
+    service: UserService = Depends(_get_user_service),
+    request: Request = None,
+    _current_user: User = Depends(require_admin),
+):
+    user = service.get_by_id(user_id)
+    if not user:
+        raise NotFoundException("User not found")
+
+    service.reset_password(user_id, body.new_password)
+
+    log_audit(
+        actor_type=ActorType.admin,
+        entity_type=EntityType.user,
+        action_type=ActionType.UPDATE,
+        actor_id=_current_user.id,
+        entity_id=user_id,
+        before_data={"email": user.email},
+        after_data={"password_reset": True},
+        request_ip=request.client.host if request else None,
+    )
+
+    return create_response(
+        data={"id": str(user_id), "reset": True},
+        message="Password reset successfully",
     )
 
 

@@ -36,5 +36,11 @@ class UserService(BaseService):
     def update_user(self, user_id: UUID, **kwargs) -> Optional[User]:
         return self.repo.update(user_id, **kwargs)
 
+    def reset_password(self, user_id: UUID, new_password: str) -> Optional[User]:
+        import bcrypt
+        plain_bytes = new_password.encode("utf-8")[:72]
+        hashed = bcrypt.hashpw(plain_bytes, bcrypt.gensalt(rounds=12)).decode("utf-8")
+        return self.repo.update(user_id, password_hash=hashed)
+
     def delete_user(self, user_id: UUID) -> bool:
         return self.repo.delete(user_id)

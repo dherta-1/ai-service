@@ -14,6 +14,7 @@ from __future__ import annotations
 import json
 import logging
 import random
+import time
 from typing import List, Optional
 from uuid import UUID
 
@@ -467,7 +468,18 @@ class BaseExamGenerationService:
     def _distribute_slots(self, ranked_groups: List[QuestionGroup], top_k: int) -> dict:
         """Distribute top_k slots across ranked groups proportionally.
 
-        Returns dict mapping group → slot_count.
+        Pseudo Code:
+            n ← len(ranked_groups)
+            base_slots ← top_k / n (integer division)
+            remainder ← top_k % n
+
+            slot_map ← {}
+            FOR i FROM 0 TO n-1:
+                group ← ranked_groups[i]
+                slots ← base_slots + (1 IF i < remainder ELSE 0)
+                slot_map[group] ← slots
+
+            RETURN slot_map
 
         Example: 4 groups, top_k=15 → {g0: 4, g1: 4, g2: 4, g3: 3}
         """
@@ -486,8 +498,28 @@ class BaseExamGenerationService:
     def _shuffle_answers(
         self, question: Question, rng: random.Random = None
     ) -> List[int]:
+        """Shuffle answer indices using timestamp-based seeding for true randomness.
+
+        Pseudo Code:
+            answers ← DB.get_by_question(question.id)
+            indices ← [0, 1, 2, ..., len(answers)-1]
+
+            IF rng IS NULL:
+                seed ← current_timestamp_nanoseconds
+                rng ← new Random(seed)
+
+            rng.shuffle(indices)
+            RETURN indices
+        """
         answers = self._answer_repo.get_by_question(question.id)
         indices = list(range(len(answers)))
-        _rng = rng or random
+
+        if rng is None:
+            # Use high-precision timestamp as seed for better randomness
+            seed = int(time.time_ns())
+            _rng = random.Random(seed)
+        else:
+            _rng = rng
+
         _rng.shuffle(indices)
         return indices

@@ -19,3 +19,8 @@ debug
 .env*
 !.env.example
 .qwen
+
+
+# Ansible
+production.ini
+production.yml

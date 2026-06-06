@@ -1,0 +1,302 @@
+﻿name: dherta-ai-compose
+
+services:
+  postgres:
+    image: ankane/pgvector:latest
+    container_name: dherta-dep-postgres
+    environment:
+      POSTGRES_DB: {{ postgres_db }}
+      POSTGRES_USER: {{ postgres_user }}
+      POSTGRES_PASSWORD: {{ postgres_password }}
+    ports:
+      - "5432:5432"
+    volumes:
+      - dherta_dep_postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dherta-dep-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - dherta_dep_redis_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.0
+    container_name: dherta-dep-zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - dherta_dep_zookeeper_data:/var/lib/zookeeper/data
+      - dherta_dep_zookeeper_logs:/var/lib/zookeeper/log
+    networks:
+      - app-network
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.0
+    container_name: dherta-dep-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - dherta_dep_kafka_data:/var/lib/kafka/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "true"]
+
+  minio:
+    image: minio/minio:latest
+    container_name: dherta-dep-minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: {{ minio_root_user }}
+      MINIO_ROOT_PASSWORD: {{ minio_root_password }}
+      MINIO_CONSOLE_ADDRESS: ":9001"
+    command: server /data --console-address ":9001"
+    volumes:
+      - dherta_dep_minio_data:/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    image: {{ backend_image }}
+    container_name: ai-service-api
+    env_file:
+      - .env
+    environment:
+      MODE: api
+      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@postgres:5432/{{ postgres_db }}
+      REDIS_URL: redis://redis:6379/0
+      AWS_S3_ENDPOINT_URL: http://minio:9000
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
+    ports:
+      - "8000:8000"
+      - "50051:50051"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - dherta_dep_models_paddle:{{ paddle_model_cache }}
+      - dherta_dep_models_browsers:{{ playwright_cache }}
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  document-worker:
+    image: {{ backend_image }}
+    container_name: document-worker
+    env_file:
+      - .env
+    environment:
+      MODE: document-worker
+      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@postgres:5432/{{ postgres_db }}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
+      {% if enable_gpu %}
+      NVIDIA_VISIBLE_DEVICES: all
+      NVIDIA_DRIVER_CAPABILITIES: compute,utility
+      {% endif %}
+    {% if enable_gpu %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    {% endif %}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - dherta_dep_models_paddle:{{ paddle_model_cache }}
+      - dherta_dep_models_browsers:{{ playwright_cache }}
+    networks:
+      - app-network
+
+  questions-worker:
+    image: {{ backend_image }}
+    container_name: questions-worker
+    env_file:
+      - .env
+    environment:
+      MODE: questions-worker
+      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@postgres:5432/{{ postgres_db }}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - dherta_dep_models_paddle:{{ paddle_model_cache }}
+      - dherta_dep_models_browsers:{{ playwright_cache }}
+    networks:
+      - app-network
+
+  audit-log-worker:
+    image: {{ backend_image }}
+    container_name: audit-log-worker
+    env_file:
+      - .env
+    environment:
+      MODE: audit-log-worker
+      DATABASE_URL: postgresql://{{ postgres_user }}:{{ postgres_password }}@postgres:5432/{{ postgres_db }}
+      REDIS_URL: redis://redis:6379/0
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    volumes:
+      - dherta_dep_models_paddle:{{ paddle_model_cache }}
+      - dherta_dep_models_browsers:{{ playwright_cache }}
+    networks:
+      - app-network
+
+  frontend:
+    image: {{ frontend_image }}
+    container_name: dherta-frontend
+    environment:
+      NODE_ENV: production
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: dherta-caddy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - dherta_dep_caddy_data:/data
+      - dherta_dep_caddy_config:/config
+    environment:
+      DOMAIN: {{ domain }}
+    depends_on:
+      api:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    networks:
+      - app-network
+    restart: unless-stopped
+
+  setup:
+    image: {{ backend_image }}
+    container_name: ai-service-setup
+    env_file:
+      - .env
+    environment:
+      MODE: setup
+      PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
+      PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
+      PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
+    {% if enable_gpu %}
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    {% endif %}
+    profiles:
+      - setup
+    volumes:
+      - dherta_dep_models_paddle:{{ paddle_model_cache }}
+      - dherta_dep_models_browsers:{{ playwright_cache }}
+    networks:
+      - app-network
+
+volumes:
+  dherta_dep_postgres_data:
+  dherta_dep_redis_data:
+  dherta_dep_zookeeper_data:
+  dherta_dep_zookeeper_logs:
+  dherta_dep_kafka_data:
+  dherta_dep_minio_data:
+  dherta_dep_models_paddle:
+  dherta_dep_models_browsers:
+  dherta_dep_caddy_data:
+  dherta_dep_caddy_config:
+
+networks:
+  app-network:
+    driver: bridge
