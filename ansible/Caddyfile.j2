@@ -1,18 +1,37 @@
-﻿{$DOMAIN:{{ domain }}} {
-	# ── API ──────────────────────────────────────────────────────
-	handle /api/* {
-		uri strip_prefix /api
-		reverse_proxy api:8000
-	}
+﻿{
+    auto_https off
+}
 
-	# ── MinIO S3 storage ────────────────────────────────────────
-	handle /storage/* {
-		uri strip_prefix /storage
-		reverse_proxy minio:9000
-	}
+:443 {
+    tls internal
 
-	# ── Frontend ─────────────────────────────────────────────────
-	handle {
-		reverse_proxy frontend:3000
-	}
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy api:8000
+    }
+
+    handle /storage/* {
+        uri strip_prefix /storage
+        reverse_proxy minio:9000
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
+}
+
+:80 {
+    handle /api/* {
+        uri strip_prefix /api
+        reverse_proxy api:8000
+    }
+
+    handle /storage/* {
+        uri strip_prefix /storage
+        reverse_proxy minio:9000
+    }
+
+    handle {
+        reverse_proxy frontend:3000
+    }
 }

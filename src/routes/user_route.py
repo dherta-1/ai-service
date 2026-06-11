@@ -17,6 +17,7 @@ from src.shared.response.response_models import (
 )
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 from src.shared.helpers.dto_utils import to_dict
 
 router = APIRouter()
@@ -82,7 +83,7 @@ async def update_user(
         entity_id=user_id,
         before_data={"email": before_user.email} if before_user else None,
         after_data={"email": user.email},
-        request_ip=request.client.host if request else None,
+        request_ip=get_client_ip(request),
     )
 
     return create_response(
@@ -113,7 +114,7 @@ async def reset_user_password(
         entity_id=user_id,
         before_data={"email": user.email},
         after_data={"password_reset": True},
-        request_ip=request.client.host if request else None,
+        request_ip=get_client_ip(request),
     )
 
     return create_response(
@@ -146,5 +147,5 @@ async def delete_user(
             entity_id=user_id,
             before_data={"email": user_to_delete.email},
             after_data=None,
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )

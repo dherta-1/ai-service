@@ -19,6 +19,7 @@ from src.shared.response.exception_handler import (
 )
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 from src.dtos.exam.req import (
     CreateManualExamRequest,
     GenerateBaseExamRequest,
@@ -114,7 +115,7 @@ async def save_template(
                 else None
             ),
             after_data={"name": template.name, "subject": template.subject},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         data = to_dict(template)
@@ -487,7 +488,7 @@ async def create_manual_exam(
             actor_id=current_user.id,
             entity_id=exam.id,
             after_data={"exam_test_code": exam.exam_test_code},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -552,7 +553,7 @@ async def update_manual_exam(
             actor_id=current_user.id,
             entity_id=exam_id,
             after_data={"exam_test_code": exam.exam_test_code},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -647,7 +648,7 @@ async def update_exam_status(
             entity_id=exam_id,
             before_data={"status": old_status},
             after_data={"status": exam.status},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -698,7 +699,7 @@ async def replace_question(
                 "question_exam_test_id": str(qet.id),
                 "new_question_id": str(body.new_question_id),
             },
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(

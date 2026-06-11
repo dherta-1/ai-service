@@ -1,5 +1,8 @@
+import asyncio
+import json
 from uuid import UUID
 from fastapi import APIRouter, Query, UploadFile, File, Form, Depends, status, Request
+from fastapi.responses import StreamingResponse
 
 from src.container import get_di_container
 from src.shared.response.exception_handler import NotFoundException, BadRequestException, ForbiddenException
@@ -15,6 +18,7 @@ from src.entities.user import User
 from src.shared.constants.user import Role
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 
 router = APIRouter()
 
@@ -58,7 +62,7 @@ async def upload_document(
             entity_id=document.id,
             before_data=None,
             after_data={"name": document.name, "status": document.status},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -115,7 +119,7 @@ async def batch_upload_documents(
                 entity_id=None,
                 before_data=None,
                 after_data={"count": len(successful), "s3_prefix": s3_prefix},
-                request_ip=request.client.host if request else None,
+                request_ip=get_client_ip(request),
             )
 
         return create_response(
@@ -248,4 +252,73 @@ async def list_user_documents(
         page=page,
         per_page=page_size,
         message="Documents retrieved successfully",
+    )
+
+
+@router.get("/status/stream")
+async def stream_document_status(
+    document_ids: str = Query(..., description="Comma-separated list of document IDs"),
+    interval: float = Query(2.0, ge=0.5, le=10.0, description="Poll interval in seconds"),
+    service: DocumentService = Depends(get_document_service),
+    current_user: User = Depends(get_current_user),
+    request: Request = None,
+):
+    """SSE stream for document status/progress updates for a list of document IDs.
+
+    Streams snapshots at the given interval until all documents reach a terminal
+    state (completed / failed) or the client disconnects.
+    """
+    ids: list[UUID] = []
+    for raw in document_ids.split(","):
+        raw = raw.strip()
+        if raw:
+            try:
+                ids.append(UUID(raw))
+            except ValueError:
+                raise BadRequestException(f"Invalid document ID: {raw}")
+
+    if not ids:
+        raise BadRequestException("No valid document IDs provided")
+
+    async def event_generator():
+        terminal = {"completed", "failed"}
+
+        while True:
+            if await request.is_disconnected():
+                break
+
+            snapshots = []
+            all_done = True
+            for doc_id in ids:
+                doc = service.get_by_id(doc_id)
+                if doc is None:
+                    continue
+                if doc.uploaded_by_id != current_user.id and current_user.role != Role.admin.value:
+                    continue
+                snapshots.append({
+                    "id": str(doc.id),
+                    "status": doc.status,
+                    "progress": doc.progress,
+                    "name": doc.name,
+                    "updated_at": str(doc.updated_at),
+                })
+                if doc.status not in terminal:
+                    all_done = False
+
+            payload = json.dumps({"documents": snapshots})
+            yield f"data: {payload}\n\n"
+
+            if all_done:
+                yield "event: done\ndata: {}\n\n"
+                break
+
+            await asyncio.sleep(interval)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
     )

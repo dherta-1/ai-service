@@ -143,11 +143,11 @@ services:
       PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
       PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
       PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
-      {% if enable_gpu %}
+{% if enable_gpu %}
       NVIDIA_VISIBLE_DEVICES: all
       NVIDIA_DRIVER_CAPABILITIES: compute,utility
-      {% endif %}
-    {% if enable_gpu %}
+{% endif %}
+{% if enable_gpu %}
     deploy:
       resources:
         reservations:
@@ -155,7 +155,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    {% endif %}
+{% endif %}
     depends_on:
       postgres:
         condition: service_healthy
@@ -268,7 +268,7 @@ services:
       PADDLE_PDX_CACHE_HOME: {{ paddle_model_cache }}
       PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK: "True"
       PLAYWRIGHT_BROWSERS_PATH: {{ playwright_cache }}
-    {% if enable_gpu %}
+{% if enable_gpu %}
     deploy:
       resources:
         reservations:
@@ -276,7 +276,7 @@ services:
             - driver: nvidia
               count: 1
               capabilities: [gpu]
-    {% endif %}
+{% endif %}
     profiles:
       - setup
     volumes:

@@ -19,6 +19,7 @@ from src.shared.constants.user import Role
 from src.shared.response.response_models import ApiResponse
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 
 logger = logging.getLogger(__name__)
 
@@ -79,7 +80,7 @@ async def queue_documents_for_extraction(
                 continue
 
             # Still allow queuing even if document status is completed
-            if document.status not in {Status.PENDING.value, Status.COMPLETED.value}:
+            if document.status not in {Status.PENDING.value, Status.COMPLETED.value, Status.FAILED.value}:
                 errors.append(
                     {
                         "document_id": str(doc_id),
@@ -106,7 +107,7 @@ async def queue_documents_for_extraction(
                 entity_id=doc_id,
                 before_data={"status": document.status},
                 after_data={"status": "queued"},
-                request_ip=request.client.host if request else None,
+                request_ip=get_client_ip(request),
             )
 
             queued.append(str(doc_id))
@@ -156,7 +157,7 @@ async def generate_similar_questions(
             entity_id=req.question_id,
             before_data=None,
             after_data={"total_generated": result.get("total_generated", 0), "k": req.k},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(data=result, message="Generated similar questions")

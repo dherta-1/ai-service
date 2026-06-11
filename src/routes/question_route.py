@@ -23,6 +23,7 @@ from src.entities.user import User
 from src.entities.question_group import QuestionGroup
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 import logging
 
 logger = logging.getLogger(__name__)
@@ -241,7 +242,7 @@ async def batch_update_question_status(
             entity_id=None,
             before_data={"count": len(uuids)},
             after_data={"count": updated_count, "status": status},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
     return create_response(
@@ -326,7 +327,7 @@ async def update_question_status(
         entity_id=question_id,
         before_data={"status": old_status},
         after_data={"status": status},
-        request_ip=request.client.host if request else None,
+        request_ip=get_client_ip(request),
     )
 
     return create_response(
@@ -362,7 +363,7 @@ async def submit_question_review(
                 "answers": [to_dict(a) for a in old_answers] if old_answers else None
             },
             after_data={"answers": answers},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
     return create_response(
@@ -428,7 +429,7 @@ async def batch_create_questions(
             entity_id=None,
             before_data=None,
             after_data={"count": len(created_questions)},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
     return create_response(
@@ -464,7 +465,7 @@ async def create_question(
                 "question_text": question.question_text,
                 "question_type": question.question_type,
             },
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -499,7 +500,7 @@ async def update_question(
                 "question_text": old_question.question_text if old_question else None
             },
             after_data={"question_text": question.question_text},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -533,7 +534,7 @@ async def generate_answer(
             entity_id=question_id,
             before_data=None,
             after_data={"question_id": str(question_id)},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(data=result, message="Answer generated successfully")
@@ -564,7 +565,7 @@ async def accept_answer(
             entity_id=question_id,
             before_data=None,
             after_data={"accepted_answer": True},
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
         return create_response(
@@ -600,7 +601,7 @@ async def delete_question(
             entity_id=question_id,
             before_data={"question_text": question_to_delete.question_text},
             after_data=None,
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
     return create_response(

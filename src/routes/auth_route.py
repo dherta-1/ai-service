@@ -18,6 +18,7 @@ from src.shared.auth_deps import get_current_user
 from src.shared.response.response_models import create_response
 from src.shared.logger.audit_logger import log_audit
 from src.shared.constants.audit_log import ActionType, ActorType, EntityType
+from src.shared.helpers.request_helper import get_client_ip
 
 router = APIRouter()
 
@@ -61,7 +62,7 @@ async def login(
         actor_id=user.id if user else None,
         entity_id=user.id if user else None,
         after_data={"email": user.email} if user else None,
-        request_ip=request.client.host if request else None,
+        request_ip=get_client_ip(request),
     )
 
     return create_response(data=tokens, message="Login successful")
@@ -126,7 +127,7 @@ async def logout(
             action_type=ActionType.LOGOUT,
             actor_id=user_id,
             entity_id=user_id,
-            request_ip=request.client.host if request else None,
+            request_ip=get_client_ip(request),
         )
 
     return create_response(message="Logged out successfully")
