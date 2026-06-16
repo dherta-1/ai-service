@@ -46,6 +46,36 @@ class UserTestAttemptRepository(BaseRepo[UserTestAttempt]):
             UserTestAttempt.id == attempt_id
         ).execute()
 
+    def list_submitted_by_template(
+        self, exam_template_id: UUID
+    ) -> list[UserTestAttempt]:
+        from src.entities.user import User
+
+        return list(
+            UserTestAttempt.select(UserTestAttempt, User)
+            .join(User)
+            .where(
+                UserTestAttempt.exam_template_id == str(exam_template_id),
+                UserTestAttempt.status == UserTestAttemptStatus.SUBMITTED,
+            )
+            .order_by(UserTestAttempt.submitted_at.asc())
+        )
+
+    def list_submitted_by_instance(
+        self, exam_instance_id: UUID
+    ) -> list[UserTestAttempt]:
+        from src.entities.user import User
+
+        return list(
+            UserTestAttempt.select(UserTestAttempt, User)
+            .join(User)
+            .where(
+                UserTestAttempt.exam_instance == exam_instance_id,
+                UserTestAttempt.status == UserTestAttemptStatus.SUBMITTED,
+            )
+            .order_by(UserTestAttempt.submitted_at.asc())
+        )
+
     def list_by_user(
         self, user_id: UUID, page: int = 1, per_page: int = 10
     ) -> tuple[list[UserTestAttempt], int]:

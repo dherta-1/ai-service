@@ -68,6 +68,7 @@ from src.services.core.document_extraction_service import DocumentExtractionServ
 from src.services.core.question_extraction_service import QuestionExtractionService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
 from src.services.core.exam_instance_export_service import ExamInstanceExportService
+from src.services.core.exam_attempts_export_service import ExamAttemptsExportService
 from src.services.core.variant_exam_generation_service import (
     VariantExamGenerationService,
 )
@@ -230,6 +231,12 @@ def setup_di_container() -> None:
             file_service=container.get("file_service"),
             playwright_manager=container.get("playwright_manager"),
         ),
+    )
+
+    # Register exam attempts export service
+    container.register_type(
+        ExamAttemptsExportService,
+        lambda: ExamAttemptsExportService(),
     )
 
     # Register exam generation services as singletons

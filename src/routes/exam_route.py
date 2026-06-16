@@ -36,6 +36,7 @@ from src.dtos.exam_attempt.req import (
 from src.services.exam_service import ExamService
 from src.services.exam_attempt_service import ExamAttemptService
 from src.services.core.base_exam_generation_service import BaseExamGenerationService
+from src.services.core.exam_attempts_export_service import ExamAttemptsExportService
 from src.services.core.exam_instance_export_service import ExamInstanceExportService
 from src.services.core.exam_mutation_service import ExamMutationService
 from src.shared.helpers.dto_utils import to_dict
@@ -66,6 +67,10 @@ def get_mutation_service() -> ExamMutationService:
 
 def get_attempt_service() -> ExamAttemptService:
     return get_di_container().resolve(ExamAttemptService)
+
+
+def get_attempts_export_service() -> ExamAttemptsExportService:
+    return get_di_container().resolve(ExamAttemptsExportService)
 
 
 # ------------------------------------------------------------------
@@ -223,6 +228,29 @@ async def list_instances_by_template(
         page=page,
         per_page=per_page,
         message=f"Retrieved {len(data)} exam instances from template",
+    )
+
+
+@router.get("/templates/{template_id}/attempts/export")
+async def export_template_attempts(
+    template_id: UUID,
+    current_user: User = Depends(get_current_user),
+    exam_service: ExamService = Depends(get_exam_service),
+    export_service: ExamAttemptsExportService = Depends(get_attempts_export_service),
+):
+    """Export all submitted attempts (bảng điểm) for an exam template as a Word document."""
+    template = exam_service.get_template(template_id)
+    if not template:
+        raise NotFoundException("Template not found")
+
+    if current_user.role != "admin" and template.created_by_id != current_user.id:
+        raise NotFoundException("Template not found")
+
+    docx_bytes, filename = export_service.export_by_template(template_id)
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -719,6 +747,29 @@ async def replace_question(
 # ------------------------------------------------------------------
 # Export
 # ------------------------------------------------------------------
+
+
+@router.get("/instances/{exam_id}/attempts/export")
+async def export_instance_attempts(
+    exam_id: UUID,
+    current_user: User = Depends(get_current_user),
+    exam_service: ExamService = Depends(get_exam_service),
+    export_service: ExamAttemptsExportService = Depends(get_attempts_export_service),
+):
+    """Export all submitted attempts (bảng điểm) for an exam instance as a Word document."""
+    exam = exam_service.get_exam_instance(exam_id)
+    if not exam:
+        raise NotFoundException("Exam instance not found")
+
+    if current_user.role != "admin" and exam.created_by_id != current_user.id:
+        raise NotFoundException("Exam instance not found")
+
+    docx_bytes, filename = export_service.export_by_instance(exam_id)
+    return Response(
+        content=docx_bytes,
+        media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/instances/{exam_id}/export")
