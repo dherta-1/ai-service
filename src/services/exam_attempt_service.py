@@ -53,6 +53,24 @@ class ExamAttemptService:
         if not template:
             raise ValueError("Template not found")
 
+        existing_attempt = self._attempt_repo.get_in_progress_by_user_and_template(
+            user.id, template_id
+        )
+        if existing_attempt:
+            instance = self._instance_repo.get_by_id(existing_attempt.exam_instance_id)
+            if instance:
+                attempt_token = self._token_service.generate_attempt_token(
+                    str(existing_attempt.id)
+                )
+                questions, _ = self._build_questions_payload(existing_attempt.id, instance)
+                return {
+                    "attempt_token": attempt_token,
+                    "expires_at": self._resolve_expires_at(attempt_token).isoformat(),
+                    "started_at": existing_attempt.started_at.isoformat(),
+                    "total_questions": len(questions),
+                    "questions": questions,
+                }
+
         if use_existing_instance:
             # Try to randomly select an existing instance from the template
             instance = self._instance_repo.get_random_instance(template_id)

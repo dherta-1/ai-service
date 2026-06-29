@@ -27,6 +27,15 @@ class UserTestAttemptRepository(BaseRepo[UserTestAttempt]):
             started_at=datetime.utcnow(),
         )
 
+    def get_in_progress_by_user_and_template(
+        self, user_id: UUID, exam_template_id: UUID
+    ) -> Optional[UserTestAttempt]:
+        return self.filter_one(
+            user=user_id,
+            exam_template_id=str(exam_template_id),
+            status=UserTestAttemptStatus.IN_PROGRESS,
+        )
+
     def get_by_user(self, attempt_id: UUID, user_id: UUID) -> Optional[UserTestAttempt]:
         return self.filter_one(id=attempt_id, user=user_id)
 
