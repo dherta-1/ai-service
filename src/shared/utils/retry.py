@@ -65,8 +65,25 @@ def is_retryable_error(error: Exception) -> bool:
     error_str = str(error).lower()
     error_type = type(error).__name__
 
-    # Network and timeout errors
-    if error_type in ("ConnectionError", "Timeout", "TimeoutError"):
+    # Network and timeout errors (stdlib + httpx + httpcore)
+    if error_type in (
+        "ConnectionError",
+        "Timeout",
+        "TimeoutError",
+        # httpx
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+        "PoolTimeout",
+        "NetworkError",
+        "RemoteProtocolError",
+        # httpcore
+        "ConnectError",
+        "ConnectTimeout",
+        "ReadTimeout",
+        "WriteTimeout",
+    ):
         return True
 
     # Check for specific error patterns
@@ -79,10 +96,16 @@ def is_retryable_error(error: Exception) -> bool:
         "temporarily unavailable",
         "connection reset",
         "connection refused",
+        "connect error",
+        "network error",
         "timeout",
+        "timed out",
         "deadline exceeded",
         "temporary failure",
         "unavailable",
+        "broken pipe",
+        "eof occurred",
+        "ssl",
     ]
 
     if any(pattern in error_str for pattern in retryable_patterns):

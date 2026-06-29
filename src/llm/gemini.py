@@ -64,7 +64,7 @@ class GeminiClient(BaseLLMClient):
         self._types = types
         return client
 
-    @retry_sync(RetryConfig(max_retries=3))
+    @retry_sync(RetryConfig(max_retries=5, initial_delay=2.0, max_delay=60.0))
     def _generate_content(
         self, prompt: str, gen_config: GenerationConfig, **kwargs
     ) -> str:
@@ -104,7 +104,7 @@ class GeminiClient(BaseLLMClient):
             logger.error(f"Error generating content from Gemini: {e}")
             raise
 
-    @retry_sync(RetryConfig(max_retries=3))
+    @retry_sync(RetryConfig(max_retries=5, initial_delay=2.0, max_delay=60.0))
     def _chat_content(
         self,
         gemini_messages: List[Dict[str, str]],
@@ -311,7 +311,7 @@ class GeminiClient(BaseLLMClient):
             logger.error(f"Error uploading file to Gemini: {e}")
             raise
 
-    @retry_sync(RetryConfig(max_retries=3))
+    @retry_sync(RetryConfig(max_retries=5, initial_delay=2.0, max_delay=60.0))
     def _generate_file_content(
         self, contents: list, gen_config: GenerationConfig, **kwargs
     ) -> str:
