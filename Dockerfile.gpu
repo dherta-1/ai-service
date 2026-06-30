@@ -52,15 +52,15 @@ ENV PATH="/opt/venv/bin:$PATH"
 
 RUN pip install --no-cache-dir --upgrade uv
 
-COPY pyproject.toml uv.lock ./
-RUN uv sync --no-editable --python /opt/venv/bin/python
+COPY . .
+
+RUN uv sync --python /opt/venv/bin/python --no-directory
 
 # PaddlePaddle GPU wheel includes CUDA libs and cudnn (install via venv pip with custom index)
 # Note: uv.lock pins numpy <2.0 to avoid array-indexing bugs in PaddleOCR 3.4.0/PaddleX 3.4.3
 RUN /opt/venv/bin/pip install --no-cache-dir paddlepaddle-gpu==3.3.1 \
     -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
 
-COPY . .
 RUN chmod +x /app/entrypoint.sh
 
 ENV PYTHONPATH=/app
