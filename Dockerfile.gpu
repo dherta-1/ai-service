@@ -47,14 +47,17 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 &
 
 WORKDIR /app
 
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
 RUN pip install --no-cache-dir --upgrade uv
 
 COPY . .
 
-RUN uv sync --python /opt/venv/bin/python --no-directory
+# Install dependencies using uv (creates .venv in /app and installs with Python 3.12)
+RUN uv sync
+
+# Move .venv to /opt/venv for cleaner paths
+RUN mv /app/.venv /opt/venv
+
+ENV PATH="/opt/venv/bin:$PATH"
 
 # PaddlePaddle GPU wheel includes CUDA libs and cudnn (install via venv pip with custom index)
 # Note: uv.lock pins numpy <2.0 to avoid array-indexing bugs in PaddleOCR 3.4.0/PaddleX 3.4.3
