@@ -58,7 +58,7 @@ RUN pip install --no-cache-dir -e .
 # Pin numpy <2: PaddleOCR 3.4.0 / PaddleX 3.4.3 hit a numpy 2.x array-indexing
 # bug ("too many indices for array: array is 1-dimensional, but 2 were indexed")
 # on certain degenerate detections during layout/table parsing.
-RUN pip install --no-cache-dir "numpy<2"
+RUN pip install --no-cache-dir "numpy==2.4.4"
 
 # Playwright will be installed on demand via setup service
 RUN pip install --no-cache-dir playwright

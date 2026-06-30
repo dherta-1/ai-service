@@ -33,6 +33,7 @@ dependencies = [
     "requests>=2.33.1",
     "matplotlib>=3.10.8",
     "playwright>=1.49.0",
+    "numpy>=2.4.4, <2.5.0",             # Pin numpy <2.5 to avoid issues with PaddleOCR 3.4.0 / PaddleX 3.4.3,
 ]
 
 [project.optional-dependencies]
