@@ -47,7 +47,10 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 &
 
 WORKDIR /app
 
-RUN pip install --no-cache-dir uv
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+RUN pip install --no-cache-dir --upgrade uv
 
 COPY pyproject.toml uv.lock ./
 RUN uv sync --no-editable
@@ -60,7 +63,6 @@ RUN uv pip install paddlepaddle-gpu==3.3.1 \
 COPY . .
 RUN chmod +x /app/entrypoint.sh
 
-ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 # PaddleX uses PADDLE_PDX_CACHE_HOME as its model cache root (see paddlex/utils/cache.py)
