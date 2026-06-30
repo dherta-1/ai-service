@@ -47,29 +47,20 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 &
 
 WORKDIR /app
 
-RUN python3 -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
+RUN pip install --no-cache-dir uv
 
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+COPY pyproject.toml uv.lock ./
+RUN uv sync --no-editable
 
-COPY pyproject.toml ./
-RUN pip install --no-cache-dir -e .
-
-# Pin numpy <2: PaddleOCR 3.4.0 / PaddleX 3.4.3 hit a numpy 2.x array-indexing
-# bug ("too many indices for array: array is 1-dimensional, but 2 were indexed")
-# on certain degenerate detections during layout/table parsing.
-RUN pip install --no-cache-dir "numpy>=1.26.0,<2.0.0"
-
-# Playwright will be installed on demand via setup service
-RUN pip install --no-cache-dir playwright
-
-# PaddlePaddle GPU wheel includes CUDA libs and cudnn (install after dependencies)
-RUN pip install --no-cache-dir paddlepaddle-gpu==3.3.1 \
+# PaddlePaddle GPU wheel includes CUDA libs and cudnn (install via uv with custom index)
+# Note: uv.lock pins numpy <2.0 to avoid array-indexing bugs in PaddleOCR 3.4.0/PaddleX 3.4.3
+RUN uv pip install paddlepaddle-gpu==3.3.1 \
     -i https://www.paddlepaddle.org.cn/packages/stable/cu126/
 
 COPY . .
 RUN chmod +x /app/entrypoint.sh
 
+ENV PATH="/app/.venv/bin:$PATH"
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 # PaddleX uses PADDLE_PDX_CACHE_HOME as its model cache root (see paddlex/utils/cache.py)
